@@ -134,13 +134,16 @@ public class AiCallResponseService : IAiCallResponseService
                 latestCustomerText.Contains(destination.Hint, StringComparison.OrdinalIgnoreCase))
             ?? bootstrap.TransferDestinations.Where(destination => destination.Enabled).OrderBy(destination => destination.Priority).FirstOrDefault();
 
+        var assistantReply = matchingDestination is null
+            ? $"Azure AI Foundry ({ModelName}) 応答: 内容を整理し、担当者から折り返し連絡する旨をご案内します。"
+            : $"Azure AI Foundry ({ModelName}) 応答: 内容を確認しました。{matchingDestination.Name} での対応が適切なため、順次おつなぎします。";
+        var aiSummary = matchingDestination is null
+            ? "FAQ では完結せず、折り返し対応が必要と判断しました。"
+            : $"{matchingDestination.Name} への転送が適切と判断しました。問い合わせ内容と顧客属性を引き継ぎます。";
+
         return new AiCallResponseDto(
-            AssistantReply: matchingDestination is null
-                ? $"Azure AI Foundry ({ModelName}) 応答: 内容を整理し、担当者から折り返し連絡する旨をご案内します。"
-                : $"Azure AI Foundry ({ModelName}) 応答: 内容を確認しました。{matchingDestination.Name} での対応が適切なため、順次おつなぎします。",
-            AiSummary: matchingDestination is null
-                ? "FAQ では完結せず、折り返し対応が必要と判断しました。"
-                : $"{matchingDestination.Name} への転送が適切と判断しました。問い合わせ内容と顧客属性を引き継ぎます。",
+            AssistantReply: assistantReply,
+            AiSummary: aiSummary,
             TransferRequired: matchingDestination is not null,
             TransferDestinationId: matchingDestination?.Id,
             TransferDestinationName: matchingDestination?.Name,
@@ -219,7 +222,7 @@ public class AiCallResponseService : IAiCallResponseService
         return new Uri($"{websocketEndpoint}/openai/realtime?api-version={apiVersion}&deployment={deployment}");
     }
 
-    private static AiCallResponseDto ParseRealtimeResponse(string payload)
+    private AiCallResponseDto ParseRealtimeResponse(string payload)
     {
         var json = ExtractJsonObject(payload);
         var response = JsonSerializer.Deserialize<AiCallResponseDto>(json, SerializerOptions);
@@ -231,7 +234,7 @@ public class AiCallResponseService : IAiCallResponseService
         return response;
     }
 
-    private static string ExtractJsonObject(string payload)
+    private string ExtractJsonObject(string payload)
     {
         var startIndex = payload.IndexOf('{', StringComparison.Ordinal);
         var endIndex = payload.LastIndexOf('}');
@@ -243,7 +246,7 @@ public class AiCallResponseService : IAiCallResponseService
         return payload[startIndex..(endIndex + 1)];
     }
 
-    private static async Task<string> ReceiveResponsePayloadAsync(
+    private async Task<string> ReceiveResponsePayloadAsync(
         ClientWebSocket socket,
         CancellationToken cancellationToken)
     {
@@ -285,7 +288,7 @@ public class AiCallResponseService : IAiCallResponseService
         return textBuilder.Length > 0 ? textBuilder.ToString() : string.Join(Environment.NewLine, rawMessages);
     }
 
-    private static async Task SendJsonAsync(
+    private async Task SendJsonAsync(
         ClientWebSocket socket,
         object payload,
         CancellationToken cancellationToken)
@@ -295,7 +298,7 @@ public class AiCallResponseService : IAiCallResponseService
         await socket.SendAsync(bytes, WebSocketMessageType.Text, true, cancellationToken);
     }
 
-    private static bool TryAppendPayloadText(string messageText, StringBuilder textBuilder)
+    private bool TryAppendPayloadText(string messageText, StringBuilder textBuilder)
     {
         using var document = JsonDocument.Parse(messageText);
         if (!document.RootElement.TryGetProperty("type", out var typeElement))
@@ -361,7 +364,7 @@ public class AiCallResponseService : IAiCallResponseService
         return false;
     }
 
-    private static bool TryGetString(JsonElement element, out string value, params string[] propertyNames)
+    private bool TryGetString(JsonElement element, out string value, params string[] propertyNames)
     {
         var current = element;
         foreach (var propertyName in propertyNames)

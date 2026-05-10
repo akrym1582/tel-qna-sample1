@@ -394,7 +394,7 @@ public class CallCenterRepository : ICallCenterRepository
         await _tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace);
     }
 
-    private static CallCenterBootstrapDto RecalculateDashboardStats(CallCenterBootstrapDto state)
+    private CallCenterBootstrapDto RecalculateDashboardStats(CallCenterBootstrapDto state)
     {
         var allCalls = new[] { state.IncomingCall }.Concat(state.CallRecords).ToList();
         var openCallCount = allCalls.Count(call => string.IsNullOrWhiteSpace(call.EndedAt));
@@ -415,7 +415,7 @@ public class CallCenterRepository : ICallCenterRepository
         };
     }
 
-    private static IReadOnlyList<CallRecordDto> ArchiveCurrentCall(
+    private IReadOnlyList<CallRecordDto> ArchiveCurrentCall(
         CallRecordDto currentCall,
         IReadOnlyList<CallRecordDto> existingCallRecords)
     {
@@ -433,22 +433,22 @@ public class CallCenterRepository : ICallCenterRepository
         return new[] { archivedCall }.Concat(existingCallRecords).ToList();
     }
 
-    private static string BuildCustomerId(string callerNumber)
+    private string BuildCustomerId(string callerNumber)
     {
         var digits = new string(callerNumber.Where(char.IsDigit).ToArray());
         return digits.Length >= 4 ? $"CUS-{digits[^4..]}" : "CUS-NEW";
     }
 
-    private static string BuildCallId() =>
+    private string BuildCallId() =>
         $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N[..4]}";
 
-    private static string GetCurrentTimestamp() =>
+    private string GetCurrentTimestamp() =>
         DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
 
-    private static string GetCurrentTimeOnly() =>
+    private string GetCurrentTimeOnly() =>
         DateTime.UtcNow.ToString("HH:mm:ss");
 
-    private static CallCenterBootstrapDto CreateDefaultState() =>
+    private CallCenterBootstrapDto CreateDefaultState() =>
         new(
             new CurrentOperatorDto(
                 Id: "operator-01",
@@ -470,7 +470,7 @@ public class CallCenterRepository : ICallCenterRepository
             CreateSystemPrompts(),
             []);
 
-    private static CallRecordDto CreateIncomingCall() =>
+    private CallRecordDto CreateIncomingCall() =>
         new(
             Id: "CALL-20260510-003",
             CallerNumber: "06-2222-3333",
@@ -503,7 +503,7 @@ public class CallCenterRepository : ICallCenterRepository
             ],
             TransferHistory: []);
 
-    private static IReadOnlyList<CallRecordDto> CreateCallRecords() =>
+    private IReadOnlyList<CallRecordDto> CreateCallRecords() =>
     [
         new CallRecordDto(
             Id: "CALL-20260510-001",
@@ -605,7 +605,7 @@ public class CallCenterRepository : ICallCenterRepository
             TransferHistory: []),
     ];
 
-    private static IReadOnlyList<FaqItemDto> CreateFaqItems() =>
+    private IReadOnlyList<FaqItemDto> CreateFaqItems() =>
     [
         new FaqItemDto(
             Id: "FAQ-001",
@@ -639,7 +639,7 @@ public class CallCenterRepository : ICallCenterRepository
             ScoreHint: "0.80"),
     ];
 
-    private static IReadOnlyList<TransferDestinationDto> CreateTransferDestinations() =>
+    private IReadOnlyList<TransferDestinationDto> CreateTransferDestinations() =>
     [
         new TransferDestinationDto(
             Id: "TR-001",
@@ -676,7 +676,7 @@ public class CallCenterRepository : ICallCenterRepository
             Enabled: true),
     ];
 
-    private static IReadOnlyList<SystemPromptDto> CreateSystemPrompts() =>
+    private IReadOnlyList<SystemPromptDto> CreateSystemPrompts() =>
     [
         new SystemPromptDto(
             Id: "PROMPT-001",
