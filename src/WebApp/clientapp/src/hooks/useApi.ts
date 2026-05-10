@@ -8,6 +8,7 @@ type GetApi<T> = {
   $path: (_option?: object) => string
 }
 
+/** `key: null` で無効化する場合でも `useAspidaSWR` に渡す最小 API オブジェクト。 */
 const disabledApi: GetApi<never> = {
   $get: async () => {
     throw new Error('useApi は無効化されています。')
