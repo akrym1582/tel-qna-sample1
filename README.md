@@ -15,7 +15,7 @@ Azure Communication Services を利用した電話受付・AI 応答システム
 - システムプロンプト一覧 / 詳細画面
 - システム設定画面
 
-> ブラウザ通話そのものは未実装ですが、`POST /api/acs/events` で ACS / Event Grid 互換イベントを受け取り、`POST /api/call-center/test-calls` でブラウザからテスト着信を作成できます。コール画面から文字起こしの追記と AI 応答生成を行うと、要約と録音アーカイブ JSON を更新できます。
+> ブラウザ通話そのものは未実装ですが、`POST /api/acs/events` で ACS / Event Grid の着信イベントを受け取り、`POST /api/acs/callbacks` で Call Automation のコールバックを受け取り、`POST /api/call-center/test-calls` でブラウザからテスト着信を作成できます。コール画面から文字起こしの追記と AI 応答生成を行うと、要約と録音アーカイブ JSON を更新できます。
 
 ## プロジェクト構成
 
@@ -56,8 +56,8 @@ TemplateApp.slnx
 - システムプロンプト
 - システム設定
 
-現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ 候補は文字起こし全文・最新発話・顧客要約に対する文字列中間一致検索で抽出します。
-AI 応答は Azure AI Foundry `gpt-realtime-2`、文字起こしは Azure AI Foundry 音声文字起こし API を利用する構成で、未設定時や接続失敗時は既存テキスト入力へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
+現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 着信イベント (`/api/acs/events`) と Call Automation コールバック (`/api/acs/callbacks`) を提供します。FAQ 候補は文字起こし全文・最新発話・顧客要約に対する文字列中間一致検索で抽出します。
+AI 応答は Azure AI Foundry `gpt-realtime-2`、文字起こしは Azure AI Foundry 音声文字起こし API を利用する構成で、未設定時や接続失敗時は既存テキスト入力へフォールバックします。ACS コールバックでは `CallConnected` → 固定ガイダンス再生 → `MediaStreamingStarted` の流れをイベント履歴へ反映し、`TranscriptionUpdated` が届いた場合は現在通話の文字起こしへ追記します。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
 
 ## 技術スタック
 
@@ -69,7 +69,8 @@ AI 応答は Azure AI Foundry `gpt-realtime-2`、文字起こしは Azure AI Fou
 - CallCenter API (`GET /api/call-center/bootstrap`, `PUT /api/call-center/...`)
 - テスト着信 / 通話状態更新 API (`POST /api/call-center/test-calls`, `PUT /api/call-center/current-call/actions/{action}`)
 - 文字起こし / AI 応答 API (`POST /api/call-center/current-call/transcript`, `POST /api/call-center/current-call/ai-response`)
-- ACS / Event Grid 互換 webhook (`POST /api/acs/events`)
+- ACS / Event Grid 着信 webhook (`POST /api/acs/events`)
+- ACS Call Automation callback (`POST /api/acs/callbacks`)
 - Azure AI Foundry Realtime (`gpt-realtime-2`)
 - Azure AI Foundry Audio Transcription (`gpt-4o-mini-transcribe`)
 - xUnit + NSubstitute
@@ -120,6 +121,33 @@ azurite --silent --location /tmp/azurite --debug /tmp/azurite/debug.log
 }
 ```
 
+## Azure インフラのセットアップ
+
+記事の構成に合わせて、電話処理は「Event Grid の着信通知」と「Call Automation のコールバック」を分けて受ける前提に整理しています。最低限、以下を準備してください。
+
+1. **Azure Communication Services リソースを作成する**
+   - 音声通話を有効化した ACS リソースを作成します。
+   - 実電話番号で受電する場合は、有料サブスクリプションで電話番号を取得します。
+2. **アプリを HTTPS で公開する**
+   - App Service / Container Apps などにデプロイし、外部公開 URL を用意します。
+   - ローカル検証時は dev tunnels 等で HTTPS URL を作成してから Event Grid を登録してください。
+3. **Event Grid サブスクリプションを登録する**
+   - ACS の着信イベントを `https://<app-base-url>/api/acs/events` へ配送します。
+   - `Microsoft.EventGrid.SubscriptionValidationEvent` を正常に返せる状態でないと登録に失敗します。
+   - 着信イベントは `Microsoft.Communication.IncomingCall` または `Microsoft.Communication.IncomingCallReceived` を購読対象にしてください。
+4. **Call Automation の callback URL を設定する**
+   - 通話接続後のイベント通知先として `https://<app-base-url>/api/acs/callbacks` を指定します。
+   - このエンドポイントでは `CallConnected`、`PlayCompleted`、`PlayFailed`、`MediaStreamingStarted`、`MediaStreamingStopped`、`MediaStreamingFailed`、`TranscriptionUpdated`、`CallDisconnected` / `CallEnded` を処理します。
+5. **Azure AI Foundry を準備する**
+   - `gpt-realtime-2` デプロイと `gpt-4o-mini-transcribe` デプロイを作成し、`AzureAiFoundry` 設定へ `Endpoint` / `ApiKey` / `Deployment` / `TranscriptionDeployment` を設定します。
+   - Realtime API の初期待ちを隠すため、実運用では CallConnected 直後に固定ガイダンスを再生しつつバックグラウンドで AI セッションを事前初期化する構成を推奨します。
+6. **ストレージを準備する**
+   - `ConnectionStrings:AzureStorage` に Azure Storage 接続文字列を設定します。
+   - `CallCenterState` テーブルと `call-recordings` コンテナはアプリ起動時に自動作成されます。
+7. **拡張ツールを用意する（必要時）**
+   - 顧客情報参照や社内ナレッジ連携を行う場合は、Function Calling または MCP サーバーを別途用意してください。
+   - 現在のリポジトリでは通話イベントと文字起こし保存までを担当し、外部ツール連携は今後の拡張ポイントです。
+
 ### フロントエンド起動
 ```bash
 cd src/WebApp/clientapp
@@ -145,10 +173,13 @@ npm run build
 - `PUT /api/call-center/current-call/actions/receive|ai|reject`: 現在着信の状態を更新
 - `POST /api/call-center/current-call/transcript`: 現在着信に顧客 / オペレーター発話を追加（`audioBase64` を含む場合は Azure AI Foundry で文字起こし）
 - `POST /api/call-center/current-call/ai-response`: Azure AI Foundry `gpt-realtime-2` で応答・要約・転送判断を生成
-- `POST /api/acs/events`: Event Grid 互換の配列 payload を受信して着信 / 接続 / 終話を反映
+- `POST /api/acs/events`: Event Grid 互換の配列 payload を受信して着信を作成
+- `POST /api/acs/callbacks`: ACS Call Automation callback を受信して接続・固定ガイダンス・ストリーミング・文字起こし・終話を反映
 
 ## 今後の実装候補
 
 - ACS 音声ストリームと録音アーカイブの本格連携
+- Call Automation の応答制御と Realtime API 事前初期化の実装
+- Function Calling / MCP を使った顧客情報・外部システム連携
 - 録音音声本体の保存と自動文字起こし連携
 - 顧客管理、監査ログ、マスタ管理の本実装
