@@ -12,6 +12,7 @@ namespace WebApp.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/acs")]
+[ApiExplorerSettings(IgnoreApi = true)]
 [AllowAnonymous]
 public class AcsWebhookController : ControllerBase
 {

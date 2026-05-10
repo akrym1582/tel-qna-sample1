@@ -95,6 +95,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - `src/pages/` に画面コンポーネントを配置する
 - `src/components/AppShell.tsx` を画面共通レイアウトとして使う
 - `src/lib/callCenterData.ts` には画面で使う型定義と参照ヘルパーを配置する
+- フロントエンドの API 呼び出しは OpenAPI から `openapi2aspida` で生成した `src/api/` 配下のクライアントを必ず経由し、画面コードに API URL の固定値を書かない
 - 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
 - FAQ / 転送先 / システム設定だけでなく、現在着信の操作やテスト着信作成も call center API 経由で行う
 - 文字起こし追加は `POST /api/call-center/current-call/transcript`、AI 応答生成は `POST /api/call-center/current-call/ai-response` を使う
@@ -107,6 +108,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 ### データフェッチ
 
 - 既存認証系 API は aspida 経由で利用する
+- call center を含むフロントエンドの全 API 呼び出しは OpenAPI 生成クライアント経由で統一する
 - 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` のレスポンスを利用する
 - FAQ / 転送先 / システム設定の変更は call center 用 API に送信する
 - テスト着信は `POST /api/call-center/test-calls`、着信操作は `PUT /api/call-center/current-call/actions/{action}` を使う
@@ -154,6 +156,9 @@ cd /repo-root && dotnet test tests/Tests.csproj
 
 # フロントエンド起動
 cd src/WebApp/clientapp && npm run dev
+
+# OpenAPI クライアント再生成
+cd src/WebApp/clientapp && npm run generate-api
 
 # フロントエンドビルド
 cd src/WebApp/clientapp && npm run build

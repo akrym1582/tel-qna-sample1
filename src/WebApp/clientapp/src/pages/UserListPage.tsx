@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserDto } from '@/hooks/useAuth'
 import { alert } from '@/lib/alert'
-import { apiFetch } from '@/lib/aspida'
+import { asApiResponse } from '@/lib/apiResponse'
+import { apiClientNoThrow } from '@/lib/apiClient'
 import { notifyInitialPassword } from '@/lib/password'
 import { canManageUsers, formatRole, roleOptions } from '@/lib/user'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -18,16 +19,6 @@ interface UserListResponseDto {
   users: UserDto[]
   /** 新規ユーザー追加が許可されているかどうか */
   allowUserCreation: boolean
-}
-
-/** 汎用 API レスポンス型（ページローカル用） */
-interface ApiResponse<T> {
-  /** 処理の成否 */
-  success: boolean
-  /** レスポンスデータ */
-  data?: T
-  /** エラーメッセージなどの補足メッセージ */
-  message?: string
 }
 
 /**
@@ -51,10 +42,10 @@ export default function UserListPage() {
   const loadUsers = async () => {
     setIsLoading(true)
     try {
-      const response = await apiFetch('/api/user')
-      const json: ApiResponse<UserListResponseDto> = await response.json()
+      const response = await apiClientNoThrow.User.get()
+      const json = asApiResponse<UserListResponseDto>(response.body)
 
-      if (!json.success) {
+      if (!response.originalResponse.ok || !json.success) {
         await alert.error(json.message ?? 'ユーザー一覧の取得に失敗しました。')
         return
       }
@@ -105,20 +96,18 @@ export default function UserListPage() {
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault()
 
-    const response = await apiFetch('/api/user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: createEmail,
-        displayName: createDisplayName,
-        storeCode: createStoreCode,
-        storeName: createStoreName,
-        roles: [createRole],
-      }),
+    const request = {
+      email: createEmail,
+      displayName: createDisplayName,
+      storeCode: createStoreCode,
+      storeName: createStoreName,
+      roles: [createRole],
+    }
+    const response = await apiClientNoThrow.User.post({
+      body: request,
     })
-
-    const json: ApiResponse<{ initialPassword: string }> = await response.json()
-    if (!json.success) {
+    const json = asApiResponse<{ initialPassword: string }>(response.body)
+    if (!response.originalResponse.ok || !json.success) {
       await alert.error(json.message ?? 'ユーザーの追加に失敗しました。')
       return
     }

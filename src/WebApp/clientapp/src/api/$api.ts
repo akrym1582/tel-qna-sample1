@@ -10,6 +10,14 @@ import type { Methods as Methods_qu6uem } from './api/Auth/test-login';
 import type { Methods as Methods_1le4j6n } from './api/Auth/test-users';
 import type { Methods as Methods_xzne74 } from './api/User';
 import type { Methods as Methods_10ziil1 } from './api/User/_userId@string';
+import type { Methods as Methods_ne7oxy } from './api/call-center/bootstrap';
+import type { Methods as Methods_1to4cnl } from './api/call-center/current-call/actions/_action@string';
+import type { Methods as Methods_1p01euh } from './api/call-center/current-call/ai-response';
+import type { Methods as Methods_1fxfynv } from './api/call-center/current-call/transcript';
+import type { Methods as Methods_1049dgh } from './api/call-center/faqs/_faqId@string';
+import type { Methods as Methods_1u1kumh } from './api/call-center/system-settings';
+import type { Methods as Methods_mqepqw } from './api/call-center/test-calls';
+import type { Methods as Methods_b9arif } from './api/call-center/transfer-destinations/_destinationId@string';
 
 const api = <T>({ baseURL, fetch }: AspidaClient<T>) => {
   const prefix = (baseURL === undefined ? '' : baseURL).replace(/\/$/, '');
@@ -23,6 +31,14 @@ const api = <T>({ baseURL, fetch }: AspidaClient<T>) => {
   const PATH7 = '/api/Auth/test-login';
   const PATH8 = '/api/Auth/test-users';
   const PATH9 = '/api/User';
+  const PATH10 = '/api/call-center/bootstrap';
+  const PATH11 = '/api/call-center/current-call/actions';
+  const PATH12 = '/api/call-center/current-call/ai-response';
+  const PATH13 = '/api/call-center/current-call/transcript';
+  const PATH14 = '/api/call-center/faqs';
+  const PATH15 = '/api/call-center/system-settings';
+  const PATH16 = '/api/call-center/test-calls';
+  const PATH17 = '/api/call-center/transfer-destinations';
   const GET = 'GET';
   const POST = 'POST';
   const PUT = 'PUT';
@@ -208,6 +224,132 @@ const api = <T>({ baseURL, fetch }: AspidaClient<T>) => {
         $post: (option: { body: Methods_xzne74['post']['reqBody'], config?: T | undefined }) =>
           fetch<Methods_xzne74['post']['resBody'], BasicHeaders, Methods_xzne74['post']['status']>(prefix, PATH9, POST, option).json().then(r => r.body),
         $path: () => `${prefix}${PATH9}`,
+      },
+      call_center: {
+        bootstrap: {
+          /**
+           * @returns OK
+           */
+          get: (option?: { config?: T | undefined } | undefined) =>
+            fetch<Methods_ne7oxy['get']['resBody'], BasicHeaders, Methods_ne7oxy['get']['status']>(prefix, PATH10, GET, option).json(),
+          /**
+           * @returns OK
+           */
+          $get: (option?: { config?: T | undefined } | undefined) =>
+            fetch<Methods_ne7oxy['get']['resBody'], BasicHeaders, Methods_ne7oxy['get']['status']>(prefix, PATH10, GET, option).json().then(r => r.body),
+          $path: () => `${prefix}${PATH10}`,
+        },
+        current_call: {
+          actions: {
+            _action: (val4: string) => {
+              const prefix4 = `${PATH11}/${val4}`;
+
+              return {
+                /**
+                 * @returns OK
+                 */
+                put: (option?: { config?: T | undefined } | undefined) =>
+                  fetch<Methods_1to4cnl['put']['resBody'], BasicHeaders, Methods_1to4cnl['put']['status']>(prefix, prefix4, PUT, option).json(),
+                /**
+                 * @returns OK
+                 */
+                $put: (option?: { config?: T | undefined } | undefined) =>
+                  fetch<Methods_1to4cnl['put']['resBody'], BasicHeaders, Methods_1to4cnl['put']['status']>(prefix, prefix4, PUT, option).json().then(r => r.body),
+                $path: () => `${prefix}${prefix4}`,
+              };
+            },
+          },
+          ai_response: {
+            /**
+             * @returns OK
+             */
+            post: (option?: { config?: T | undefined } | undefined) =>
+              fetch<Methods_1p01euh['post']['resBody'], BasicHeaders, Methods_1p01euh['post']['status']>(prefix, PATH12, POST, option).json(),
+            /**
+             * @returns OK
+             */
+            $post: (option?: { config?: T | undefined } | undefined) =>
+              fetch<Methods_1p01euh['post']['resBody'], BasicHeaders, Methods_1p01euh['post']['status']>(prefix, PATH12, POST, option).json().then(r => r.body),
+            $path: () => `${prefix}${PATH12}`,
+          },
+          transcript: {
+            /**
+             * @returns OK
+             */
+            post: (option: { body: Methods_1fxfynv['post']['reqBody'], config?: T | undefined }) =>
+              fetch<Methods_1fxfynv['post']['resBody'], BasicHeaders, Methods_1fxfynv['post']['status']>(prefix, PATH13, POST, option).json(),
+            /**
+             * @returns OK
+             */
+            $post: (option: { body: Methods_1fxfynv['post']['reqBody'], config?: T | undefined }) =>
+              fetch<Methods_1fxfynv['post']['resBody'], BasicHeaders, Methods_1fxfynv['post']['status']>(prefix, PATH13, POST, option).json().then(r => r.body),
+            $path: () => `${prefix}${PATH13}`,
+          },
+        },
+        faqs: {
+          _faqId: (val3: string) => {
+            const prefix3 = `${PATH14}/${val3}`;
+
+            return {
+              /**
+               * @returns OK
+               */
+              put: (option: { body: Methods_1049dgh['put']['reqBody'], config?: T | undefined }) =>
+                fetch<Methods_1049dgh['put']['resBody'], BasicHeaders, Methods_1049dgh['put']['status']>(prefix, prefix3, PUT, option).json(),
+              /**
+               * @returns OK
+               */
+              $put: (option: { body: Methods_1049dgh['put']['reqBody'], config?: T | undefined }) =>
+                fetch<Methods_1049dgh['put']['resBody'], BasicHeaders, Methods_1049dgh['put']['status']>(prefix, prefix3, PUT, option).json().then(r => r.body),
+              $path: () => `${prefix}${prefix3}`,
+            };
+          },
+        },
+        system_settings: {
+          /**
+           * @returns OK
+           */
+          put: (option: { body: Methods_1u1kumh['put']['reqBody'], config?: T | undefined }) =>
+            fetch<Methods_1u1kumh['put']['resBody'], BasicHeaders, Methods_1u1kumh['put']['status']>(prefix, PATH15, PUT, option).json(),
+          /**
+           * @returns OK
+           */
+          $put: (option: { body: Methods_1u1kumh['put']['reqBody'], config?: T | undefined }) =>
+            fetch<Methods_1u1kumh['put']['resBody'], BasicHeaders, Methods_1u1kumh['put']['status']>(prefix, PATH15, PUT, option).json().then(r => r.body),
+          $path: () => `${prefix}${PATH15}`,
+        },
+        test_calls: {
+          /**
+           * @returns OK
+           */
+          post: (option: { body: Methods_mqepqw['post']['reqBody'], config?: T | undefined }) =>
+            fetch<Methods_mqepqw['post']['resBody'], BasicHeaders, Methods_mqepqw['post']['status']>(prefix, PATH16, POST, option).json(),
+          /**
+           * @returns OK
+           */
+          $post: (option: { body: Methods_mqepqw['post']['reqBody'], config?: T | undefined }) =>
+            fetch<Methods_mqepqw['post']['resBody'], BasicHeaders, Methods_mqepqw['post']['status']>(prefix, PATH16, POST, option).json().then(r => r.body),
+          $path: () => `${prefix}${PATH16}`,
+        },
+        transfer_destinations: {
+          _destinationId: (val3: string) => {
+            const prefix3 = `${PATH17}/${val3}`;
+
+            return {
+              /**
+               * @returns OK
+               */
+              put: (option: { body: Methods_b9arif['put']['reqBody'], config?: T | undefined }) =>
+                fetch<Methods_b9arif['put']['resBody'], BasicHeaders, Methods_b9arif['put']['status']>(prefix, prefix3, PUT, option).json(),
+              /**
+               * @returns OK
+               */
+              $put: (option: { body: Methods_b9arif['put']['reqBody'], config?: T | undefined }) =>
+                fetch<Methods_b9arif['put']['resBody'], BasicHeaders, Methods_b9arif['put']['status']>(prefix, prefix3, PUT, option).json().then(r => r.body),
+              $path: () => `${prefix}${prefix3}`,
+            };
+          },
+        },
       },
     },
   };

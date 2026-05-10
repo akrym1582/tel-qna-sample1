@@ -68,28 +68,3 @@ export const aspidaClientNoThrow = aspida(apiFetch, {
   ...fetchConfig,
   throwHttpErrors: false,
 })
-
-/** `useApi` フック内で使用する JSON GET API の最小インターフェース */
-type JsonGetApi<T> = {
-  $get: (_option?: object) => Promise<T>
-  $path: (_option?: object) => string
-}
-
-/**
- * 指定したパスへ GET リクエストを行う JSON 取得 API オブジェクトを生成する。
- * `useApi` フックなど aspida 非対応エンドポイントへのアクセスに使用する。
- * @param path - API のパス（例: `/api/user`）
- * @returns `$get` と `$path` を持つ API オブジェクト
- */
-export const createJsonGetApi = <T>(path: string): JsonGetApi<T> => {
-  return {
-    $get: async () => {
-      const res = await apiFetch(path)
-      if (!res.ok) {
-        throw new Error(`エラー: ${path} の取得に失敗しました (HTTP ${res.status} ${res.statusText})`)
-      }
-      return (await res.json()) as T
-    },
-    $path: () => path,
-  }
-}

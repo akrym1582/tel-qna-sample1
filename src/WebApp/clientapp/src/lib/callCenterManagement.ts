@@ -1,6 +1,6 @@
-import type { ApiResponse } from '@/lib/apiResponse'
-import { apiFetch } from '@/lib/aspida'
+import { asApiResponse } from '@/lib/apiResponse'
 import type { CallRecord, FaqItem, SystemSettings, TransferDestination } from '@/lib/callCenterData'
+import { apiClientNoThrow } from '@/lib/apiClient'
 
 export interface UpdateFaqRequest {
   question: string
@@ -49,43 +49,37 @@ export interface AppendCurrentCallTranscriptRequest {
   audioFileName?: string
 }
 
-async function requestJson<T>(path: string, method: 'POST' | 'PUT', body?: unknown): Promise<ApiResponse<T>> {
-  const response = await apiFetch(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-
-  return (await response.json()) as ApiResponse<T>
-}
-
 export function updateFaq(faqId: string, request: UpdateFaqRequest) {
-  return requestJson<FaqItem>(`/api/call-center/faqs/${faqId}`, 'PUT', request)
+  return apiClientNoThrow.call_center.faqs._faqId(faqId)
+    .$put({ body: request })
+    .then(asApiResponse<FaqItem>)
 }
 
 export function updateTransferDestination(
   destinationId: string,
   request: UpdateTransferDestinationRequest,
 ) {
-  return requestJson<TransferDestination>(`/api/call-center/transfer-destinations/${destinationId}`, 'PUT', request)
+  return apiClientNoThrow.call_center.transfer_destinations._destinationId(destinationId)
+    .$put({ body: request })
+    .then(asApiResponse<TransferDestination>)
 }
 
 export function updateSystemSettings(request: UpdateSystemSettingsRequest) {
-  return requestJson<SystemSettings>('/api/call-center/system-settings', 'PUT', request)
+  return apiClientNoThrow.call_center.system_settings.$put({ body: request }).then(asApiResponse<SystemSettings>)
 }
 
 export function createTestIncomingCall(request: CreateTestIncomingCallRequest) {
-  return requestJson<CallRecord>('/api/call-center/test-calls', 'POST', request)
+  return apiClientNoThrow.call_center.test_calls.$post({ body: request }).then(asApiResponse<CallRecord>)
 }
 
 export function applyCurrentCallAction(action: 'receive' | 'ai' | 'reject') {
-  return requestJson<CallRecord>(`/api/call-center/current-call/actions/${action}`, 'PUT')
+  return apiClientNoThrow.call_center.current_call.actions._action(action).$put().then(asApiResponse<CallRecord>)
 }
 
 export function appendCurrentCallTranscript(request: AppendCurrentCallTranscriptRequest) {
-  return requestJson<CallRecord>('/api/call-center/current-call/transcript', 'POST', request)
+  return apiClientNoThrow.call_center.current_call.transcript.$post({ body: request }).then(asApiResponse<CallRecord>)
 }
 
 export function generateAiResponse() {
-  return requestJson<CallRecord>('/api/call-center/current-call/ai-response', 'POST')
+  return apiClientNoThrow.call_center.current_call.ai_response.$post().then(asApiResponse<CallRecord>)
 }
