@@ -203,7 +203,7 @@ export default function TransferDestinationDetailPage() {
                 <option value="disabled">無効</option>
               </select>
             </div>
-            <div className="md:col-span-2 flex justify-end">
+            <div className="flex justify-end md:col-span-2">
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? '保存中...' : '保存'}
               </Button>

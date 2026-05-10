@@ -7,7 +7,7 @@ import { alert } from '@/lib/alert'
 import { asApiResponse } from '@/lib/apiResponse'
 import { aspidaClientNoThrow } from '@/lib/aspida'
 import { notifyInitialPassword } from '@/lib/password'
-import { APP_NAME } from '@/lib/appConfig'
+import { APP_HERO_DESCRIPTION, APP_HERO_TITLE, APP_NAME } from '@/lib/appConfig'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -201,10 +201,8 @@ export default function LoginPage() {
         <div className="max-w-xl space-y-8">
           <div className="space-y-3">
             <p className="text-sm font-medium text-primary">{APP_NAME}</p>
-            <h1 className="text-4xl font-semibold leading-tight">代表電話の一次受付を、Web と AI で一元管理します。</h1>
-            <p className="text-base text-muted-foreground">
-              オペレーター待受、AI 自動応答、FAQ 参照、転送先選定、通話履歴確認までを初期フェーズ向けに 1 つの Web アプリで確認できます。
-            </p>
+            <h1 className="text-4xl font-semibold leading-tight">{APP_HERO_TITLE}</h1>
+            <p className="text-base text-muted-foreground">{APP_HERO_DESCRIPTION}</p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
