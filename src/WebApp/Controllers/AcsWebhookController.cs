@@ -235,12 +235,12 @@ public class AcsWebhookController : ControllerBase
                 transcriptText));
     }
 
-    private static string GetEventType(JsonElement element) =>
+    private string GetEventType(JsonElement element) =>
         GetPropertyString(element, "type") ??
         GetPropertyString(element, "eventType") ??
         string.Empty;
 
-    private static string BuildFailureDetail(string message, JsonElement eventItem)
+    private string BuildFailureDetail(string message, JsonElement eventItem)
     {
         var resultInformation = GetNestedPropertyString(eventItem, "data", "resultInformation", "message") ??
             GetNestedPropertyString(eventItem, "data", "resultInformation", "subCode") ??
@@ -249,7 +249,7 @@ public class AcsWebhookController : ControllerBase
         return string.IsNullOrWhiteSpace(resultInformation) ? message : $"{message} {resultInformation}";
     }
 
-    private static string? GetRecordingLocation(JsonElement eventItem)
+    private string? GetRecordingLocation(JsonElement eventItem)
     {
         var directLocation = GetNestedPropertyString(eventItem, "data", "recordingLocation") ??
             GetNestedPropertyString(eventItem, "data", "contentLocation");
@@ -274,17 +274,17 @@ public class AcsWebhookController : ControllerBase
         return null;
     }
 
-    private static string? GetEventTimestamp(JsonElement eventItem) =>
+    private string? GetEventTimestamp(JsonElement eventItem) =>
         NormalizeTimestamp(
             GetPropertyString(eventItem, "eventTime") ??
             GetPropertyString(eventItem, "time"));
 
-    private static string? GetTranscriptionText(JsonElement eventItem) =>
+    private string? GetTranscriptionText(JsonElement eventItem) =>
         GetNestedPropertyString(eventItem, "data", "result", "text") ??
         GetNestedPropertyString(eventItem, "data", "recognizedText") ??
         GetNestedPropertyString(eventItem, "data", "displayText");
 
-    private static string GetTranscriptSpeaker(JsonElement eventItem)
+    private string GetTranscriptSpeaker(JsonElement eventItem)
     {
         var speaker = GetNestedPropertyString(eventItem, "data", "result", "participantId") ??
             GetNestedPropertyString(eventItem, "data", "result", "speaker") ??
@@ -294,7 +294,7 @@ public class AcsWebhookController : ControllerBase
             : "顧客";
     }
 
-    private static string? GetPropertyString(JsonElement element, string propertyName)
+    private string? GetPropertyString(JsonElement element, string propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var value))
         {
@@ -304,7 +304,7 @@ public class AcsWebhookController : ControllerBase
         return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
     }
 
-    private static string? GetNestedPropertyString(JsonElement element, params string[] propertyPath)
+    private string? GetNestedPropertyString(JsonElement element, params string[] propertyPath)
     {
         if (!TryGetNestedProperty(element, out var current, propertyPath))
         {
@@ -314,7 +314,7 @@ public class AcsWebhookController : ControllerBase
         return current.ValueKind == JsonValueKind.String ? current.GetString() : current.ToString();
     }
 
-    private static bool TryGetNestedProperty(JsonElement element, out JsonElement current, params string[] propertyPath)
+    private bool TryGetNestedProperty(JsonElement element, out JsonElement current, params string[] propertyPath)
     {
         current = element;
         foreach (var propertyName in propertyPath)
@@ -329,7 +329,7 @@ public class AcsWebhookController : ControllerBase
         return true;
     }
 
-    private static string? NormalizeTimestamp(string? rawTimestamp)
+    private string? NormalizeTimestamp(string? rawTimestamp)
     {
         if (string.IsNullOrWhiteSpace(rawTimestamp))
         {
