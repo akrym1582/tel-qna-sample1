@@ -12,6 +12,7 @@ public class CallCenterService : ICallCenterService
     private const string RecordingUpdateDetail = "録音アーカイブを更新しました。";
     private readonly ICallCenterRepository _repository;
     private readonly IAiCallResponseService _aiCallResponseService;
+    private readonly IAiTranscriptionService _aiTranscriptionService;
     private readonly ICallRecordingStorage _callRecordingStorage;
 
     /// <summary>
@@ -19,14 +20,17 @@ public class CallCenterService : ICallCenterService
     /// </summary>
     /// <param name="repository">電話受付データリポジトリ。</param>
     /// <param name="aiCallResponseService">AI 応答生成サービス。</param>
+    /// <param name="aiTranscriptionService">音声文字起こしサービス。</param>
     /// <param name="callRecordingStorage">録音アーカイブ保存先。</param>
     public CallCenterService(
         ICallCenterRepository repository,
         IAiCallResponseService aiCallResponseService,
+        IAiTranscriptionService aiTranscriptionService,
         ICallRecordingStorage callRecordingStorage)
     {
         _repository = repository;
         _aiCallResponseService = aiCallResponseService;
+        _aiTranscriptionService = aiTranscriptionService;
         _callRecordingStorage = callRecordingStorage;
     }
 
@@ -113,11 +117,30 @@ public class CallCenterService : ICallCenterService
     /// <inheritdoc/>
     public async Task<CallRecordDto> AppendCurrentCallTranscriptAsync(AppendTranscriptLineRequestDto request)
     {
+        var normalizedText = request.Text.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedText) && string.IsNullOrWhiteSpace(request.AudioBase64))
+        {
+            throw new ArgumentException("発話テキストまたは音声データを指定してください。", nameof(request));
+        }
+
         var normalizedRequest = request with
         {
             Speaker = request.Speaker.Trim(),
-            Text = request.Text.Trim(),
+            Text = normalizedText,
+            AudioBase64 = string.IsNullOrWhiteSpace(request.AudioBase64) ? null : request.AudioBase64.Trim(),
+            AudioMimeType = string.IsNullOrWhiteSpace(request.AudioMimeType) ? null : request.AudioMimeType.Trim(),
+            AudioFileName = string.IsNullOrWhiteSpace(request.AudioFileName) ? null : request.AudioFileName.Trim(),
         };
+        var transcribedText = await _aiTranscriptionService.TranscribeAsync(normalizedRequest);
+        if (!string.IsNullOrWhiteSpace(transcribedText))
+        {
+            normalizedRequest = normalizedRequest with { Text = transcribedText };
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedRequest.Text))
+        {
+            throw new ArgumentException("文字起こし結果が空です。音声データまたは発話テキストを確認してください。", nameof(request));
+        }
 
         var call = await _repository.AppendCurrentCallTranscriptAsync(normalizedRequest);
         return await RefreshRecordingArchiveAsync(call);

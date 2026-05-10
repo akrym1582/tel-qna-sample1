@@ -39,6 +39,7 @@ builder.Services.AddSingleton(
     ?? new Shared.Util.UserManagementSettings());
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAiCallResponseService, AiCallResponseService>();
+builder.Services.AddHttpClient<IAiTranscriptionService, AiTranscriptionService>();
 builder.Services.AddSingleton<ICallRecordingStorage, CallRecordingStorage>();
 builder.Services.AddSingleton<ICallCenterService, CallCenterService>();
 builder.Services.AddSingleton(sp => new Lazy<IUserService>(() => sp.GetRequiredService<IUserService>()));
