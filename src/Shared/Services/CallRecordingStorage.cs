@@ -10,6 +10,7 @@ namespace Shared.Services;
 public class CallRecordingStorage : ICallRecordingStorage
 {
     private const string ContainerName = "call-recordings";
+    private const string NotSavedRecordingLocation = "未保存";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly BlobContainerClient _containerClient;
 
@@ -42,7 +43,7 @@ public class CallRecordingStorage : ICallRecordingStorage
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(payload));
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
 
-        return string.IsNullOrWhiteSpace(callRecord.RecordingLocation) || callRecord.RecordingLocation == "未保存"
+        return string.IsNullOrWhiteSpace(callRecord.RecordingLocation) || callRecord.RecordingLocation == NotSavedRecordingLocation
             ? blobClient.Uri.ToString()
             : callRecord.RecordingLocation;
     }

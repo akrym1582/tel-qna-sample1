@@ -14,6 +14,7 @@ public class CallCenterRepository : ICallCenterRepository
     private const string RowKey = "STATE";
     private const string DataPropertyName = "Data";
     private const string UpdatedBy = "管理者";
+    private const string NotSavedRecordingLocation = "未保存";
     private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
     private readonly SemaphoreSlim _stateLock = new(1, 1);
     private readonly TableClient _tableClient;
@@ -154,7 +155,7 @@ public class CallCenterRepository : ICallCenterRepository
                 ? "新規着信 / テスト受電"
                 : request.CustomerSummary;
             var currentCall = new CallRecordDto(
-                Id: $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmss}",
+                Id: BuildCallId(),
                 CallerNumber: request.CallerNumber,
                 ReceivedAt: receivedAt,
                 EndedAt: string.Empty,
@@ -171,7 +172,7 @@ public class CallCenterRepository : ICallCenterRepository
                 TransferDestinationName: null,
                 TransferReason: null,
                 AiSummary: "着信を受け付けました。オペレーターまたは AI が応答できます。",
-                RecordingLocation: "未保存",
+                RecordingLocation: NotSavedRecordingLocation,
                 Transcript:
                 [
                     new CallTranscriptLineDto("顧客", normalizedTopic, GetCurrentTimeOnly()),
@@ -438,6 +439,9 @@ public class CallCenterRepository : ICallCenterRepository
         return digits.Length >= 4 ? $"CUS-{digits[^4..]}" : "CUS-NEW";
     }
 
+    private static string BuildCallId() =>
+        $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N[..4]}";
+
     private static string GetCurrentTimestamp() =>
         DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
 
@@ -485,7 +489,7 @@ public class CallCenterRepository : ICallCenterRepository
             TransferDestinationName: null,
             TransferReason: null,
             AiSummary: "保守契約の一次切り分けを行い、障害受付チームへの転送要否を判断する想定。",
-            RecordingLocation: "未保存",
+            RecordingLocation: NotSavedRecordingLocation,
             Transcript:
             [
                 new CallTranscriptLineDto("顧客", "設備アラートが止まらず困っています。", "10:15:12"),

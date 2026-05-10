@@ -11,6 +11,9 @@ namespace Shared.Services;
 /// </summary>
 public class AiCallResponseService : IAiCallResponseService
 {
+    /// <summary>
+    /// Azure AI Foundry で代表電話の一次受付に使う realtime モデル名。
+    /// </summary>
     private const string ModelName = "gpt-realtime-2";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly AiFoundrySettings _settings;
@@ -211,7 +214,9 @@ public class AiCallResponseService : IAiCallResponseService
         var websocketEndpoint = endpoint
             .Replace("https://", "wss://", StringComparison.OrdinalIgnoreCase)
             .Replace("http://", "ws://", StringComparison.OrdinalIgnoreCase);
-        return new Uri($"{websocketEndpoint}/openai/realtime?api-version={Uri.EscapeDataString(_settings.ApiVersion)}&deployment={Uri.EscapeDataString(_settings.Deployment)}");
+        var apiVersion = Uri.EscapeDataString(_settings.ApiVersion);
+        var deployment = Uri.EscapeDataString(_settings.Deployment);
+        return new Uri($"{websocketEndpoint}/openai/realtime?api-version={apiVersion}&deployment={deployment}");
     }
 
     private static AiCallResponseDto ParseRealtimeResponse(string payload)
