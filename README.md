@@ -53,7 +53,7 @@ TemplateApp.slnx
 - システムプロンプト
 - システム設定
 
-現時点ではバックエンドの `CallCenterRepository` が固定データを返し、将来的にはこれらを API + Azure Storage / Search / OpenAI 連携へ置き換える想定です。
+現時点ではバックエンドの `CallCenterRepository` がインメモリ状態として固定初期データを保持し、`GET /api/call-center/bootstrap` と FAQ / 転送先 / システム設定の更新 API を提供します。将来的にはこれらを API + Azure Storage / Search / OpenAI 連携へ置き換える想定です。
 
 ## 技術スタック
 
@@ -62,6 +62,7 @@ TemplateApp.slnx
 - Cookie 認証 + Azure Entra ID
 - Azure Table Storage（既存ユーザー管理）
 - 初期フェーズ向け CallCenter API (`GET /api/call-center/bootstrap`)
+- FAQ / 転送先 / システム設定の更新 API (`PUT /api/call-center/...`)
 - xUnit + NSubstitute
 
 ### フロントエンド

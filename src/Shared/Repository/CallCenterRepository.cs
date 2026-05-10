@@ -7,30 +7,127 @@ namespace Shared.Repository;
 /// </summary>
 public class CallCenterRepository : ICallCenterRepository
 {
-    private static readonly CallCenterBootstrapDto Bootstrap = new(
-        new CurrentOperatorDto(
-            Id: "operator-01",
-            Name: "田中 花子",
-            Role: "オペレーター",
-            Team: "代表電話受付"),
-        new SystemSettingsDto(
-            BusinessHours: "平日 09:00〜18:00",
-            AfterHoursMessage: "営業時間外のため、本日は応答できません。明日の営業時間内におかけ直しください。",
-            RejectMessage: "ただいま担当者が応答できないため、お電話を終了いたします。",
-            AiEnabled: true,
-            TestLoginEnabled: true,
-            FaqScoreThreshold: "0.82",
-            OperatorAssignmentRule: "先着応答 + 20秒未応答で AI へ自動切替"),
-        CreateIncomingCall(),
-        CreateCallRecords(),
-        CreateFaqItems(),
-        CreateTransferDestinations(),
-        CreateSystemPrompts(),
-        CreateDashboardStats());
+    private const string UpdatedBy = "管理者";
+    private readonly object _syncRoot = new();
+    private CurrentOperatorDto _currentOperator = new(
+        Id: "operator-01",
+        Name: "田中 花子",
+        Role: "オペレーター",
+        Team: "代表電話受付");
+
+    private SystemSettingsDto _systemSettings = new(
+        BusinessHours: "平日 09:00〜18:00",
+        AfterHoursMessage: "営業時間外のため、本日は応答できません。明日の営業時間内におかけ直しください。",
+        RejectMessage: "ただいま担当者が応答できないため、お電話を終了いたします。",
+        AiEnabled: true,
+        TestLoginEnabled: true,
+        FaqScoreThreshold: "0.82",
+        OperatorAssignmentRule: "先着応答 + 20秒未応答で AI へ自動切替");
+
+    private CallRecordDto _incomingCall = CreateIncomingCall();
+    private List<CallRecordDto> _callRecords = CreateCallRecords();
+    private List<FaqItemDto> _faqItems = CreateFaqItems();
+    private List<TransferDestinationDto> _transferDestinations = CreateTransferDestinations();
+    private List<SystemPromptDto> _systemPrompts = CreateSystemPrompts();
+    private List<DashboardStatDto> _dashboardStats = CreateDashboardStats();
 
     /// <inheritdoc/>
-    public Task<CallCenterBootstrapDto> GetBootstrapAsync() =>
-        Task.FromResult(Bootstrap);
+    public Task<CallCenterBootstrapDto> GetBootstrapAsync()
+    {
+        lock (_syncRoot)
+        {
+            return Task.FromResult(new CallCenterBootstrapDto(
+                _currentOperator,
+                _systemSettings,
+                _incomingCall,
+                _callRecords.ToList(),
+                _faqItems.ToList(),
+                _transferDestinations.ToList(),
+                _systemPrompts.ToList(),
+                _dashboardStats.ToList()));
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<FaqItemDto?> UpdateFaqAsync(string faqId, UpdateFaqRequestDto request)
+    {
+        lock (_syncRoot)
+        {
+            var index = _faqItems.FindIndex(faq => string.Equals(faq.Id, faqId, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return Task.FromResult<FaqItemDto?>(null);
+            }
+
+            var updatedFaq = _faqItems[index] with
+            {
+                Question = request.Question,
+                Answer = request.Answer,
+                Category = request.Category,
+                Keywords = request.Keywords.ToList(),
+                Enabled = request.Enabled,
+                ScoreHint = request.ScoreHint,
+                UpdatedAt = GetCurrentTimestamp(),
+                UpdatedBy = UpdatedBy,
+            };
+
+            _faqItems[index] = updatedFaq;
+            return Task.FromResult<FaqItemDto?>(updatedFaq);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<TransferDestinationDto?> UpdateTransferDestinationAsync(
+        string destinationId,
+        UpdateTransferDestinationRequestDto request)
+    {
+        lock (_syncRoot)
+        {
+            var index = _transferDestinations.FindIndex(destination =>
+                string.Equals(destination.Id, destinationId, StringComparison.Ordinal));
+            if (index < 0)
+            {
+                return Task.FromResult<TransferDestinationDto?>(null);
+            }
+
+            var updatedDestination = _transferDestinations[index] with
+            {
+                Name = request.Name,
+                Type = request.Type,
+                Department = request.Department,
+                Target = request.Target,
+                BusinessHours = request.BusinessHours,
+                Priority = request.Priority,
+                Hint = request.Hint,
+                FallbackName = request.FallbackName,
+                Enabled = request.Enabled,
+            };
+
+            _transferDestinations[index] = updatedDestination;
+            return Task.FromResult<TransferDestinationDto?>(updatedDestination);
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<SystemSettingsDto> UpdateSystemSettingsAsync(UpdateSystemSettingsRequestDto request)
+    {
+        lock (_syncRoot)
+        {
+            _systemSettings = new SystemSettingsDto(
+                request.BusinessHours,
+                request.AfterHoursMessage,
+                request.RejectMessage,
+                request.AiEnabled,
+                request.TestLoginEnabled,
+                request.FaqScoreThreshold,
+                request.OperatorAssignmentRule);
+
+            return Task.FromResult(_systemSettings);
+        }
+    }
+
+    private static string GetCurrentTimestamp() =>
+        DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
 
     private static CallRecordDto CreateIncomingCall() =>
         new(
@@ -65,7 +162,7 @@ public class CallCenterRepository : ICallCenterRepository
             ],
             TransferHistory: []);
 
-    private static IReadOnlyList<CallRecordDto> CreateCallRecords() =>
+    private static List<CallRecordDto> CreateCallRecords() =>
     [
         new CallRecordDto(
             Id: "CALL-20260510-001",
@@ -167,7 +264,7 @@ public class CallCenterRepository : ICallCenterRepository
             TransferHistory: []),
     ];
 
-    private static IReadOnlyList<FaqItemDto> CreateFaqItems() =>
+    private static List<FaqItemDto> CreateFaqItems() =>
     [
         new FaqItemDto(
             Id: "FAQ-001",
@@ -201,7 +298,7 @@ public class CallCenterRepository : ICallCenterRepository
             ScoreHint: "0.80"),
     ];
 
-    private static IReadOnlyList<TransferDestinationDto> CreateTransferDestinations() =>
+    private static List<TransferDestinationDto> CreateTransferDestinations() =>
     [
         new TransferDestinationDto(
             Id: "TR-001",
@@ -238,7 +335,7 @@ public class CallCenterRepository : ICallCenterRepository
             Enabled: true),
     ];
 
-    private static IReadOnlyList<SystemPromptDto> CreateSystemPrompts() =>
+    private static List<SystemPromptDto> CreateSystemPrompts() =>
     [
         new SystemPromptDto(
             Id: "PROMPT-001",
@@ -269,7 +366,7 @@ public class CallCenterRepository : ICallCenterRepository
             UpdatedBy: "スーパーバイザー"),
     ];
 
-    private static IReadOnlyList<DashboardStatDto> CreateDashboardStats() =>
+    private static List<DashboardStatDto> CreateDashboardStats() =>
     [
         new DashboardStatDto("本日の着信件数", "18件"),
         new DashboardStatDto("AI 対応件数", "11件"),

@@ -104,13 +104,14 @@ builder.Services.AddSingleton<IUserService, UserService>();
 ### データフェッチ
 
 - 既存認証系 API は aspida 経由で利用する
-- 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` の固定レスポンスを利用する
+- 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` のレスポンスを利用する
+- FAQ / 転送先 / システム設定の変更は call center 用 API に送信する
 - API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
 ### 画面追加時の方針
 
 - まず画面要件に沿った UI を追加する
-- 次に必要な型を `src/lib/callCenterData.ts` に追加し、固定データはバックエンドの `CallCenterRepository` に追加する
+- 次に必要な型を `src/lib/callCenterData.ts` に追加し、固定データや更新処理はバックエンドの `CallCenterRepository` に追加する
 - 実データ化するときは、コントローラー・サービス・リポジトリの責務を維持したまま永続化実装へ置き換える
 
 ---

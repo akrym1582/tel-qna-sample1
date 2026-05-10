@@ -18,7 +18,95 @@ public class CallCenterControllerTests
     [Fact]
     public async Task GetBootstrap_初期表示データを返す()
     {
-        var bootstrap = new CallCenterBootstrapDto(
+        var bootstrap = CreateBootstrap();
+        _callCenterService.GetBootstrapAsync().Returns(bootstrap);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.GetBootstrap();
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto<CallCenterBootstrapDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Data);
+        Assert.Equal("田中 花子", response.Data.CurrentOperator.Name);
+        Assert.Equal("CALL-001", response.Data.IncomingCall.Id);
+    }
+
+    [Fact]
+    public async Task UpdateFaq_対象が存在する場合は更新済みFAQを返す()
+    {
+        var updatedFaq = new FaqItemDto(
+            "FAQ-001",
+            "更新後の質問",
+            "更新後の回答",
+            "ログイン",
+            ["再送", "メール未着"],
+            true,
+            "2026-05-10 12:00",
+            "管理者",
+            "0.91");
+        _callCenterService.UpdateFaqAsync("FAQ-001", Arg.Any<UpdateFaqRequestDto>()).Returns(updatedFaq);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.UpdateFaq(
+            "FAQ-001",
+            new UpdateFaqRequestDto("更新後の質問", "更新後の回答", "ログイン", ["再送", "メール未着"], true, "0.91"));
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto<FaqItemDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("更新後の質問", response.Data?.Question);
+    }
+
+    [Fact]
+    public async Task UpdateTransferDestination_対象が存在しない場合はNotFoundを返す()
+    {
+        _callCenterService.UpdateTransferDestinationAsync("TR-999", Arg.Any<UpdateTransferDestinationRequestDto>())
+            .Returns((TransferDestinationDto?)null);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.UpdateTransferDestination(
+            "TR-999",
+            new UpdateTransferDestinationRequestDto("名称", "種別", "部署", "03-0000-0000", "平日", 1, "ヒント", "代替", true));
+
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto>(notFoundResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task UpdateSystemSettings_更新済み設定を返す()
+    {
+        var updatedSettings = new SystemSettingsDto(
+            "平日 08:00〜17:00",
+            "時間外メッセージ",
+            "お断りメッセージ",
+            false,
+            false,
+            "0.90",
+            "AI 優先");
+        _callCenterService.UpdateSystemSettingsAsync(Arg.Any<UpdateSystemSettingsRequestDto>()).Returns(updatedSettings);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.UpdateSystemSettings(
+            new UpdateSystemSettingsRequestDto(
+                "平日 08:00〜17:00",
+                "時間外メッセージ",
+                "お断りメッセージ",
+                false,
+                false,
+                "0.90",
+                "AI 優先"));
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto<SystemSettingsDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("平日 08:00〜17:00", response.Data?.BusinessHours);
+        Assert.False(response.Data?.AiEnabled);
+    }
+
+    private static CallCenterBootstrapDto CreateBootstrap() =>
+        new(
             new CurrentOperatorDto("operator-01", "田中 花子", "オペレーター", "代表電話受付"),
             new SystemSettingsDto("平日 09:00〜18:00", "時間外です。", "お断りします。", true, true, "0.82", "先着応答"),
             new CallRecordDto(
@@ -48,16 +136,4 @@ public class CallCenterControllerTests
             [],
             [],
             [new DashboardStatDto("本日の着信件数", "1件")]);
-        _callCenterService.GetBootstrapAsync().Returns(bootstrap);
-        var controller = new CallCenterController(_callCenterService);
-
-        var result = await controller.GetBootstrap();
-
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var response = Assert.IsType<ApiResponseDto<CallCenterBootstrapDto>>(okResult.Value);
-        Assert.True(response.Success);
-        Assert.NotNull(response.Data);
-        Assert.Equal("田中 花子", response.Data.CurrentOperator.Name);
-        Assert.Equal("CALL-001", response.Data.IncomingCall.Id);
-    }
 }
