@@ -7,6 +7,7 @@ import { alert } from '@/lib/alert'
 import { asApiResponse } from '@/lib/apiResponse'
 import { aspidaClientNoThrow } from '@/lib/aspida'
 import { notifyInitialPassword } from '@/lib/password'
+import { APP_NAME } from '@/lib/appConfig'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -199,7 +200,7 @@ export default function LoginPage() {
       <div className="hidden border-l bg-background px-10 py-12 lg:flex lg:flex-col lg:justify-center">
         <div className="max-w-xl space-y-8">
           <div className="space-y-3">
-            <p className="text-sm font-medium text-primary">電話受付・AI応答システム</p>
+            <p className="text-sm font-medium text-primary">{APP_NAME}</p>
             <h1 className="text-4xl font-semibold leading-tight">代表電話の一次受付を、Web と AI で一元管理します。</h1>
             <p className="text-base text-muted-foreground">
               オペレーター待受、AI 自動応答、FAQ 参照、転送先選定、通話履歴確認までを初期フェーズ向けに 1 つの Web アプリで確認できます。

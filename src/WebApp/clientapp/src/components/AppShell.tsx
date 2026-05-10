@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { alert } from '@/lib/alert'
+import { APP_NAME } from '@/lib/appConfig'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -44,7 +45,7 @@ export default function AppShell({ title, description, actions, children }: AppS
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-medium text-primary">電話受付・AI応答システム</p>
+            <p className="text-sm font-medium text-primary">{APP_NAME}</p>
             <h1 className="text-2xl font-semibold">{title}</h1>
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
