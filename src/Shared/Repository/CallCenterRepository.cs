@@ -2,6 +2,7 @@ using System.Text.Json;
 using Azure;
 using Azure.Data.Tables;
 using Shared.Dto;
+using Shared.Util;
 
 namespace Shared.Repository;
 
@@ -154,7 +155,7 @@ public class CallCenterRepository : ICallCenterRepository
             var customerSummary = string.IsNullOrWhiteSpace(request.CustomerSummary)
                 ? "新規着信 / テスト受電"
                 : request.CustomerSummary;
-            var currentCall = new CallRecordDto(
+            var baseCall = new CallRecordDto(
                 Id: BuildCallId(),
                 CallerNumber: request.CallerNumber,
                 ReceivedAt: receivedAt,
@@ -182,6 +183,12 @@ public class CallCenterRepository : ICallCenterRepository
                     new CallEventDto(GetCurrentTimeOnly(), "着信受付", source, $"{request.CallerNumber} からの着信を取り込みました。"),
                 ],
                 TransferHistory: []);
+            var matchedFaqs = CallProcessingHelper.FindRelevantFaqs(baseCall, state.FaqItems);
+            var currentCall = baseCall with
+            {
+                CustomerSummary = CallProcessingHelper.BuildCustomerSummary(baseCall, customerSummary),
+                AiSummary = CallProcessingHelper.BuildTranscriptSummary(baseCall, matchedFaqs, baseCall.AiSummary),
+            };
 
             await SaveStateAsync(state with
             {
@@ -243,7 +250,7 @@ public class CallCenterRepository : ICallCenterRepository
             var state = await LoadStateAsync();
             var currentCall = state.IncomingCall;
             var timestamp = GetCurrentTimeOnly();
-            var updatedCall = currentCall with
+            var draftCall = currentCall with
             {
                 Transcript = currentCall.Transcript
                     .Concat([new CallTranscriptLineDto(request.Speaker, request.Text, timestamp)])
@@ -251,6 +258,12 @@ public class CallCenterRepository : ICallCenterRepository
                 Events = currentCall.Events
                     .Concat([new CallEventDto(timestamp, "文字起こし更新", request.Speaker, $"{request.Speaker} の発話を追加しました。")])
                     .ToList(),
+            };
+            var matchedFaqs = CallProcessingHelper.FindRelevantFaqs(draftCall, state.FaqItems);
+            var updatedCall = draftCall with
+            {
+                CustomerSummary = CallProcessingHelper.BuildCustomerSummary(draftCall, currentCall.CustomerSummary),
+                AiSummary = CallProcessingHelper.BuildTranscriptSummary(draftCall, matchedFaqs, currentCall.AiSummary),
             };
 
             await SaveStateAsync(state with { IncomingCall = updatedCall });
@@ -298,7 +311,7 @@ public class CallCenterRepository : ICallCenterRepository
                         "提案済み"));
             }
 
-            var updatedCall = currentCall with
+            var draftCall = currentCall with
             {
                 Status = response.TransferRequired ? "転送中" : "AI対応中",
                 ResponseMode = "AI",
@@ -314,6 +327,14 @@ public class CallCenterRepository : ICallCenterRepository
                     .ToList(),
                 Events = updatedEvents,
                 TransferHistory = updatedTransferHistory,
+            };
+            var matchedFaqs = CallProcessingHelper.FindRelevantFaqs(draftCall, state.FaqItems);
+            var updatedCall = draftCall with
+            {
+                CustomerSummary = CallProcessingHelper.BuildCustomerSummary(draftCall, currentCall.CustomerSummary),
+                AiSummary = string.IsNullOrWhiteSpace(response.AiSummary)
+                    ? CallProcessingHelper.BuildTranscriptSummary(draftCall, matchedFaqs, currentCall.AiSummary)
+                    : response.AiSummary.Trim(),
             };
 
             await SaveStateAsync(state with { IncomingCall = updatedCall });

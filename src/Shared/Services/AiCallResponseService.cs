@@ -53,14 +53,11 @@ public class AiCallResponseService : IAiCallResponseService
         var latestPrompt = bootstrap.SystemPrompts.FirstOrDefault(prompt => prompt.Enabled)
             ?.Content
             ?? "顧客の用件を整理し、解決可否と転送要否を判断してください。";
-        var transcript = string.Join(
-            Environment.NewLine,
-            currentCall.Transcript.Select(line => $"{line.Speaker}({line.At}): {line.Text}"));
+        var transcript = CallProcessingHelper.BuildTranscriptText(currentCall);
+        var matchedFaqs = CallProcessingHelper.FindRelevantFaqs(currentCall, bootstrap.FaqItems, 5);
         var faqItems = string.Join(
             Environment.NewLine,
-            bootstrap.FaqItems
-                .Where(faq => faq.Enabled)
-                .Take(5)
+            matchedFaqs
                 .Select(faq => $"- 質問: {faq.Question} / 回答: {faq.Answer} / キーワード: {string.Join(", ", faq.Keywords)}"));
         var transferDestinations = string.Join(
             Environment.NewLine,
@@ -88,6 +85,8 @@ public class AiCallResponseService : IAiCallResponseService
         promptBuilder.AppendLine($"- FAQ 閾値: {bootstrap.SystemSettings.FaqScoreThreshold}");
         promptBuilder.AppendLine($"- 振り分けルール: {bootstrap.SystemSettings.OperatorAssignmentRule}");
         promptBuilder.AppendLine();
+        promptBuilder.AppendLine($"事前 FAQ 中間一致件数: {matchedFaqs.Count}");
+        promptBuilder.AppendLine();
         promptBuilder.AppendLine("顧客情報:");
         promptBuilder.AppendLine($"- 顧客名: {currentCall.CustomerName}");
         promptBuilder.AppendLine($"- 顧客種別: {currentCall.CustomerType}");
@@ -96,8 +95,8 @@ public class AiCallResponseService : IAiCallResponseService
         promptBuilder.AppendLine("文字起こし:");
         promptBuilder.AppendLine(transcript);
         promptBuilder.AppendLine();
-        promptBuilder.AppendLine("FAQ:");
-        promptBuilder.AppendLine(faqItems);
+        promptBuilder.AppendLine("FAQ 中間一致候補:");
+        promptBuilder.AppendLine(string.IsNullOrWhiteSpace(faqItems) ? "- 該当候補なし" : faqItems);
         promptBuilder.AppendLine();
         promptBuilder.AppendLine("転送先候補:");
         promptBuilder.AppendLine(transferDestinations);
@@ -107,19 +106,14 @@ public class AiCallResponseService : IAiCallResponseService
     private static AiCallResponseDto GenerateMockResponse(CallCenterBootstrapDto bootstrap)
     {
         var currentCall = bootstrap.IncomingCall;
-        var latestCustomerText = currentCall.Transcript.LastOrDefault(line => line.Speaker == "顧客")?.Text
-            ?? currentCall.CustomerSummary;
-        var matchingFaq = bootstrap.FaqItems
-            .Where(faq => faq.Enabled)
-            .FirstOrDefault(faq =>
-                faq.Keywords.Any(keyword => latestCustomerText.Contains(keyword, StringComparison.OrdinalIgnoreCase)) ||
-                latestCustomerText.Contains(faq.Question, StringComparison.OrdinalIgnoreCase));
+        var latestCustomerText = currentCall.Transcript.LastOrDefault(line => line.Speaker == "顧客")?.Text ?? currentCall.CustomerSummary;
+        var matchingFaq = CallProcessingHelper.FindRelevantFaqs(currentCall, bootstrap.FaqItems, 1).FirstOrDefault();
 
         if (matchingFaq is not null)
         {
             return new AiCallResponseDto(
                 AssistantReply: $"Azure AI Foundry ({ModelName}) 応答: {matchingFaq.Answer}",
-                AiSummary: $"問い合わせ内容を {matchingFaq.Category} FAQ と照合し、自己解決可能と判断しました。",
+                AiSummary: $"問い合わせ内容を {matchingFaq.Category} FAQ の中間一致で照合し、自己解決可能と判断しました。",
                 TransferRequired: false,
                 TransferDestinationId: null,
                 TransferDestinationName: null,

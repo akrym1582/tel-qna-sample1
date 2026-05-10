@@ -13,7 +13,7 @@
 
 - フロントエンドは最低限必要な画面を提供し、ブラウザからテスト着信を作成できる
 - バックエンドは既存の認証・ユーザー管理基盤を保持する
-- 将来的に ACS、FAQ ベクトル検索、転送判断 API へ拡張する前提で UI を整理する
+- 将来的に ACS、FAQ 中間一致検索の高度化、転送判断 API へ拡張する前提で UI を整理する
 
 ```
 TemplateApp.slnx
@@ -98,6 +98,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
 - FAQ / 転送先 / システム設定だけでなく、現在着信の操作やテスト着信作成も call center API 経由で行う
 - 文字起こし追加は `POST /api/call-center/current-call/transcript`、AI 応答生成は `POST /api/call-center/current-call/ai-response` を使う
+- FAQ 候補抽出はベクトル検索ではなく、文字起こし全文・顧客要約に対する文字列中間一致検索を使う
 - `src/api/` 配下の aspida 生成物は手動編集しない
 - UI に表示するラベル・メッセージ・説明文はすべて日本語で記述する
 - `export default` で画面コンポーネントをエクスポートする
@@ -111,6 +112,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - テスト着信は `POST /api/call-center/test-calls`、着信操作は `PUT /api/call-center/current-call/actions/{action}` を使う
 - AI 応答は Azure AI Foundry `gpt-realtime-2` を優先利用し、未設定時はサンプル応答へフォールバックする
 - 録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
+- 録音アーカイブ JSON には文字起こし全文、最新発話、要約、イベント、転送情報を含める
 - API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
 ### 画面追加時の方針

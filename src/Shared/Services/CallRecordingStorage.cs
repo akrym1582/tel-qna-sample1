@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Azure.Storage.Blobs;
 using Shared.Dto;
+using Shared.Util;
 
 namespace Shared.Services;
 
@@ -29,16 +30,7 @@ public class CallRecordingStorage : ICallRecordingStorage
     {
         var blobClient = _containerClient.GetBlobClient($"{callRecord.Id}.json");
         var payload = JsonSerializer.Serialize(
-            new
-            {
-                callId = callRecord.Id,
-                customerName = callRecord.CustomerName,
-                customerType = callRecord.CustomerType,
-                aiSummary = callRecord.AiSummary,
-                transcript = callRecord.Transcript,
-                events = callRecord.Events,
-                exportedAt = DateTime.UtcNow.ToString("O"),
-            },
+            BuildArchivePayload(callRecord),
             SerializerOptions);
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(payload));
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
@@ -46,5 +38,50 @@ public class CallRecordingStorage : ICallRecordingStorage
         return string.IsNullOrWhiteSpace(callRecord.RecordingLocation) || callRecord.RecordingLocation == NotSavedRecordingLocation
             ? blobClient.Uri.ToString()
             : callRecord.RecordingLocation;
+    }
+
+    private static object BuildArchivePayload(CallRecordDto callRecord)
+    {
+        var latestTranscriptLine = callRecord.Transcript.LastOrDefault();
+        var durationSeconds = CallProcessingHelper.CalculateDurationSeconds(callRecord);
+        var recordingStatus = string.IsNullOrWhiteSpace(callRecord.EndedAt) ? "recording" : "completed";
+        return new
+        {
+            callId = callRecord.Id,
+            customer = new
+            {
+                id = callRecord.CustomerId,
+                name = callRecord.CustomerName,
+                type = callRecord.CustomerType,
+                summary = callRecord.CustomerSummary,
+            },
+            recording = new
+            {
+                archiveFormat = "json",
+                status = recordingStatus,
+                startedAt = callRecord.ReceivedAt,
+                endedAt = string.IsNullOrWhiteSpace(callRecord.EndedAt) ? null : callRecord.EndedAt,
+                durationSeconds,
+                updatedAt = DateTime.UtcNow.ToString("O"),
+            },
+            transcript = new
+            {
+                lineCount = callRecord.Transcript.Count,
+                fullText = CallProcessingHelper.BuildTranscriptText(callRecord),
+                latestLine = latestTranscriptLine,
+                lines = callRecord.Transcript,
+            },
+            summary = new
+            {
+                aiSummary = callRecord.AiSummary,
+                transferRequired = callRecord.TransferRequired,
+                transferDestinationId = callRecord.TransferDestinationId,
+                transferDestinationName = callRecord.TransferDestinationName,
+                transferReason = callRecord.TransferReason,
+            },
+            events = callRecord.Events,
+            transferHistory = callRecord.TransferHistory,
+            exportedAt = DateTime.UtcNow.ToString("O"),
+        };
     }
 }

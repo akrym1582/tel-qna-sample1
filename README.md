@@ -40,6 +40,7 @@ TemplateApp.slnx
 - フロントエンドは `/api/call-center/bootstrap` から画面データを取得する
 - `src/WebApp/clientapp/src/lib/callCenterData.ts` はフロントエンド側の型定義と参照ヘルパーを保持する
 - AI 応答生成は `POST /api/call-center/current-call/ai-response` から実行し、Azure AI Foundry `gpt-realtime-2` を優先利用する
+- FAQ 候補抽出はベクトル検索を使わず、文字起こし・顧客要約に対する文字列中間一致検索で行う
 - 文字起こし追加は `POST /api/call-center/current-call/transcript` で行い、録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
 - 画面間の導線は `AppShell` のサイドナビゲーションで提供
 - UI テキストはすべて日本語
@@ -55,8 +56,8 @@ TemplateApp.slnx
 - システムプロンプト
 - システム設定
 
-現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ ベクトル検索や AI 判断ロジック本体は今後の拡張対象です。
-AI 応答は Azure AI Foundry `gpt-realtime-2` を利用する構成で、未設定時や接続失敗時はサンプル応答へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし・イベント・要約をまとめた録音アーカイブ JSON を Blob Storage に保存します。
+現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ 候補は文字起こし全文・最新発話・顧客要約に対する文字列中間一致検索で抽出します。
+AI 応答は Azure AI Foundry `gpt-realtime-2` を利用する構成で、未設定時や接続失敗時はサンプル応答へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
 
 ## 技術スタック
 
@@ -146,7 +147,6 @@ npm run build
 
 ## 今後の実装候補
 
-- FAQ ベクトル検索 API
 - ACS 音声ストリームと録音アーカイブの本格連携
-- 録音 / 文字起こし / 要約の永続化
+- 録音音声本体の保存と自動文字起こし連携
 - 顧客管理、監査ログ、マスタ管理の本実装
