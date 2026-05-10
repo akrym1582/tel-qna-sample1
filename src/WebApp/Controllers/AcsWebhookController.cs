@@ -95,6 +95,67 @@ public class AcsWebhookController : ControllerBase
         return Ok(new ApiResponseDto(true, "ACS コールバックを処理しました。"));
     }
 
+    private static string GetEventType(JsonElement element) =>
+        GetPropertyString(element, "type") ??
+        GetPropertyString(element, "eventType") ??
+        string.Empty;
+
+    private static string BuildFailureDetail(string message, JsonElement eventItem)
+    {
+        var resultInformation = GetNestedPropertyString(eventItem, "data", "resultInformation", "message") ??
+            GetNestedPropertyString(eventItem, "data", "resultInformation", "subCode") ??
+            GetNestedPropertyString(eventItem, "data", "resultInformation") ??
+            GetNestedPropertyString(eventItem, "data", "error", "message");
+        return string.IsNullOrWhiteSpace(resultInformation) ? message : $"{message} {resultInformation}";
+    }
+
+    private static string? GetPropertyString(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var value))
+        {
+            return null;
+        }
+
+        return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
+    }
+
+    private static string? GetNestedPropertyString(JsonElement element, params string[] propertyPath)
+    {
+        if (!TryGetNestedProperty(element, out var current, propertyPath))
+        {
+            return null;
+        }
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() : current.ToString();
+    }
+
+    private static bool TryGetNestedProperty(JsonElement element, out JsonElement current, params string[] propertyPath)
+    {
+        current = element;
+        foreach (var propertyName in propertyPath)
+        {
+            if (!current.TryGetProperty(propertyName, out current))
+            {
+                current = default;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string? NormalizeTimestamp(string? rawTimestamp)
+    {
+        if (string.IsNullOrWhiteSpace(rawTimestamp))
+        {
+            return null;
+        }
+
+        return DateTime.TryParse(rawTimestamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var timestamp)
+            ? timestamp.ToString("yyyy-MM-dd HH:mm")
+            : rawTimestamp;
+    }
+
     private async Task HandleIncomingCallEventAsync(JsonElement eventItem)
     {
         var callerNumber = GetNestedPropertyString(eventItem, "data", "from", "rawId")
@@ -235,20 +296,6 @@ public class AcsWebhookController : ControllerBase
                 transcriptText));
     }
 
-    private string GetEventType(JsonElement element) =>
-        GetPropertyString(element, "type") ??
-        GetPropertyString(element, "eventType") ??
-        string.Empty;
-
-    private string BuildFailureDetail(string message, JsonElement eventItem)
-    {
-        var resultInformation = GetNestedPropertyString(eventItem, "data", "resultInformation", "message") ??
-            GetNestedPropertyString(eventItem, "data", "resultInformation", "subCode") ??
-            GetNestedPropertyString(eventItem, "data", "resultInformation") ??
-            GetNestedPropertyString(eventItem, "data", "error", "message");
-        return string.IsNullOrWhiteSpace(resultInformation) ? message : $"{message} {resultInformation}";
-    }
-
     private string? GetRecordingLocation(JsonElement eventItem)
     {
         var directLocation = GetNestedPropertyString(eventItem, "data", "recordingLocation") ??
@@ -292,52 +339,5 @@ public class AcsWebhookController : ControllerBase
         return !string.IsNullOrWhiteSpace(speaker) && speaker.Contains("agent", StringComparison.OrdinalIgnoreCase)
             ? "オペレーター"
             : "顧客";
-    }
-
-    private string? GetPropertyString(JsonElement element, string propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var value))
-        {
-            return null;
-        }
-
-        return value.ValueKind == JsonValueKind.String ? value.GetString() : value.ToString();
-    }
-
-    private string? GetNestedPropertyString(JsonElement element, params string[] propertyPath)
-    {
-        if (!TryGetNestedProperty(element, out var current, propertyPath))
-        {
-            return null;
-        }
-
-        return current.ValueKind == JsonValueKind.String ? current.GetString() : current.ToString();
-    }
-
-    private bool TryGetNestedProperty(JsonElement element, out JsonElement current, params string[] propertyPath)
-    {
-        current = element;
-        foreach (var propertyName in propertyPath)
-        {
-            if (!current.TryGetProperty(propertyName, out current))
-            {
-                current = default;
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private string? NormalizeTimestamp(string? rawTimestamp)
-    {
-        if (string.IsNullOrWhiteSpace(rawTimestamp))
-        {
-            return null;
-        }
-
-        return DateTime.TryParse(rawTimestamp, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var timestamp)
-            ? timestamp.ToString("yyyy-MM-dd HH:mm")
-            : rawTimestamp;
     }
 }
