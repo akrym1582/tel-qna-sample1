@@ -46,19 +46,19 @@ beforeEach(() => {
 describe('CallConsolePage', () => {
   it('着信中の顧客情報と文字起こしを表示する', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/calls/console']}>
         <CallConsolePage />
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('コール画面')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'コール画面' })).toBeInTheDocument()
     expect(screen.getByText('有限会社みなと設備')).toBeInTheDocument()
     expect(screen.getByText('設備アラートが止まらず困っています。')).toBeInTheDocument()
   })
 
   it('AIへ回す操作で AI対応中 を表示する', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/calls/console']}>
         <CallConsolePage />
       </MemoryRouter>,
     )
@@ -71,7 +71,7 @@ describe('CallConsolePage', () => {
 
   it('断る操作でお断りメッセージを表示する', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/calls/console']}>
         <CallConsolePage />
       </MemoryRouter>,
     )
