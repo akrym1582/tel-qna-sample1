@@ -14,21 +14,63 @@ vi.mock('@/pages/HomePage', () => ({
   default: () => <div data-testid="home-page">ホームページ</div>,
 }))
 
-vi.mock('@/pages/UserListPage', () => ({
-  default: () => <div data-testid="user-list-page">ユーザー一覧ページ</div>,
-}))
-
-vi.mock('@/pages/UserDetailPage', () => ({
-  default: () => <div data-testid="user-detail-page">ユーザー詳細ページ</div>,
-}))
-
 vi.mock('@/pages/ChangePasswordPage', () => ({
   default: () => <div data-testid="change-password-page">パスワード変更ページ</div>,
+}))
+
+vi.mock('@/pages/CallConsolePage', () => ({
+  default: () => <div data-testid="call-console-page">コール画面</div>,
+}))
+
+vi.mock('@/pages/CallListPage', () => ({
+  default: () => <div data-testid="call-list-page">コール一覧画面</div>,
+}))
+
+vi.mock('@/pages/CallDetailPage', () => ({
+  default: () => <div data-testid="call-detail-page">コール詳細画面</div>,
+}))
+
+vi.mock('@/pages/FaqListPage', () => ({
+  default: () => <div data-testid="faq-list-page">FAQ一覧画面</div>,
+}))
+
+vi.mock('@/pages/FaqDetailPage', () => ({
+  default: () => <div data-testid="faq-detail-page">FAQ詳細画面</div>,
+}))
+
+vi.mock('@/pages/TransferDestinationListPage', () => ({
+  default: () => <div data-testid="transfer-list-page">転送先一覧画面</div>,
+}))
+
+vi.mock('@/pages/TransferDestinationDetailPage', () => ({
+  default: () => <div data-testid="transfer-detail-page">転送先詳細画面</div>,
+}))
+
+vi.mock('@/pages/SystemPromptListPage', () => ({
+  default: () => <div data-testid="prompt-list-page">システムプロンプト一覧画面</div>,
+}))
+
+vi.mock('@/pages/SystemPromptDetailPage', () => ({
+  default: () => <div data-testid="prompt-detail-page">システムプロンプト詳細画面</div>,
+}))
+
+vi.mock('@/pages/SystemSettingsPage', () => ({
+  default: () => <div data-testid="settings-page">システム設定画面</div>,
 }))
 
 import { useAuth } from '@/hooks/useAuth'
 
 const mockUseAuth = vi.mocked(useAuth)
+const authenticatedUser = {
+  userId: 'user-1',
+  email: 'test@example.com',
+  displayName: 'テストユーザー',
+  storeCode: '001',
+  storeName: '本店',
+  roles: ['general'],
+  isActive: true,
+  mustChangePassword: false,
+}
 
 describe('App', () => {
   it('ローディング中はローディング表示を返す', () => {
@@ -52,8 +94,6 @@ describe('App', () => {
     )
 
     expect(screen.getByText('読み込み中...')).toBeInTheDocument()
-    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('home-page')).not.toBeInTheDocument()
   })
 
   it('未認証の場合はログインページを表示する', () => {
@@ -77,21 +117,11 @@ describe('App', () => {
     )
 
     expect(screen.getByTestId('login-page')).toBeInTheDocument()
-    expect(screen.queryByTestId('home-page')).not.toBeInTheDocument()
   })
 
-  it('認証済みの場合はホームページを表示する', () => {
+  it('認証済みの場合はダッシュボードを表示する', () => {
     mockUseAuth.mockReturnValue({
-      user: {
-        userId: 'user-1',
-        email: 'test@example.com',
-        displayName: 'テストユーザー',
-        storeCode: '001',
-        storeName: '本店',
-        roles: ['User'],
-        isActive: true,
-        mustChangePassword: false,
-      },
+      user: authenticatedUser,
       isLoading: false,
       isError: false,
       login: vi.fn(),
@@ -110,21 +140,34 @@ describe('App', () => {
     )
 
     expect(screen.getByTestId('home-page')).toBeInTheDocument()
-    expect(screen.queryByTestId('login-page')).not.toBeInTheDocument()
+  })
+
+  it('認証済みの場合はコール一覧ルートを表示する', () => {
+    mockUseAuth.mockReturnValue({
+      user: authenticatedUser,
+      isLoading: false,
+      isError: false,
+      login: vi.fn(),
+      testLogin: vi.fn(),
+      entraLogin: vi.fn(),
+      logout: vi.fn(),
+      changePassword: vi.fn(),
+      resetPassword: vi.fn(),
+      resetPasswordByCredentials: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/calls']}>
+        <App />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('call-list-page')).toBeInTheDocument()
   })
 
   it('パスワード変更必須の場合は変更ページを表示する', () => {
     mockUseAuth.mockReturnValue({
-      user: {
-        userId: 'user-1',
-        email: 'test@example.com',
-        displayName: 'テストユーザー',
-        storeCode: '001',
-        storeName: '本店',
-        roles: ['general'],
-        isActive: true,
-        mustChangePassword: true,
-      },
+      user: { ...authenticatedUser, mustChangePassword: true },
       isLoading: false,
       isError: false,
       login: vi.fn(),

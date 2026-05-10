@@ -2,17 +2,18 @@ import { useAuth } from '@/hooks/useAuth'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from '@/pages/LoginPage'
 import HomePage from '@/pages/HomePage'
-import UserListPage from '@/pages/UserListPage'
-import UserDetailPage from '@/pages/UserDetailPage'
 import ChangePasswordPage from '@/pages/ChangePasswordPage'
+import CallConsolePage from '@/pages/CallConsolePage'
+import CallListPage from '@/pages/CallListPage'
+import CallDetailPage from '@/pages/CallDetailPage'
+import FaqListPage from '@/pages/FaqListPage'
+import FaqDetailPage from '@/pages/FaqDetailPage'
+import TransferDestinationListPage from '@/pages/TransferDestinationListPage'
+import TransferDestinationDetailPage from '@/pages/TransferDestinationDetailPage'
+import SystemPromptListPage from '@/pages/SystemPromptListPage'
+import SystemPromptDetailPage from '@/pages/SystemPromptDetailPage'
+import SystemSettingsPage from '@/pages/SystemSettingsPage'
 
-/**
- * アプリケーションのルートコンポーネント。
- * 認証状態に応じてルーティングを制御する。
- * - 未ログイン: ログインページのみ表示
- * - 初回パスワード変更必須: パスワード変更ページのみ表示
- * - ログイン済み: 通常のルーティングを適用
- */
 function App() {
   const { user, isLoading } = useAuth()
 
@@ -39,8 +40,16 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/users" element={<UserListPage />} />
-      <Route path="/users/:userId" element={<UserDetailPage />} />
+      <Route path="/calls/console" element={<CallConsolePage />} />
+      <Route path="/calls" element={<CallListPage />} />
+      <Route path="/calls/:callId" element={<CallDetailPage />} />
+      <Route path="/faqs" element={<FaqListPage />} />
+      <Route path="/faqs/:faqId" element={<FaqDetailPage />} />
+      <Route path="/transfer-destinations" element={<TransferDestinationListPage />} />
+      <Route path="/transfer-destinations/:destinationId" element={<TransferDestinationDetailPage />} />
+      <Route path="/system-prompts" element={<SystemPromptListPage />} />
+      <Route path="/system-prompts/:promptId" element={<SystemPromptDetailPage />} />
+      <Route path="/system-settings" element={<SystemSettingsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

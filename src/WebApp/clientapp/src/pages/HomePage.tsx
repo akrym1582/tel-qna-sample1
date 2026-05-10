@@ -1,65 +1,66 @@
-import { useAuth } from '@/hooks/useAuth'
-import { alert } from '@/lib/alert'
 import { Link } from 'react-router-dom'
-import { canManageUsers, formatRole } from '@/lib/user'
-import { Button, buttonVariants } from '@/components/ui/button'
+import AppShell from '@/components/AppShell'
+import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { dashboardStats, systemSettings } from '@/lib/callCenterData'
 import { cn } from '@/lib/utils'
 
-/**
- * ホーム画面コンポーネント。
- * ログイン中ユーザーの基本情報（表示名・メール・ロール）を表示する。
- * ユーザー管理権限を持つ場合はユーザー一覧へのリンクを表示する。
- */
+const quickLinks = [
+  { to: '/calls/console', label: 'コール画面を開く', description: '最新着信の受付と AI 応答状態を確認します。' },
+  { to: '/calls', label: 'コール一覧を見る', description: '通話履歴の一覧と詳細を確認します。' },
+  { to: '/faqs', label: 'FAQ を確認する', description: 'AI が参照する回答ナレッジを確認します。' },
+  { to: '/system-settings', label: 'システム設定を見る', description: '業務時間や AI 応答設定を確認します。' },
+]
+
 export default function HomePage() {
-  const { user, logout } = useAuth()
-
-  /**
-   * ログアウトボタンのクリックハンドラ。
-   * 確認ダイアログを表示してからログアウト API を呼び出す。
-   */
-  const handleLogout = async () => {
-    const confirmed = await alert.confirm('ログアウトしますか？')
-    if (confirmed) {
-      await logout()
-      await alert.success('ログアウトしました。')
-    }
-  }
-
   return (
-    <div className="container mx-auto p-8">
+    <AppShell title="ダッシュボード画面" description="電話受付・AI 応答システムの最新状況を表示します。">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {dashboardStats.map((stat) => (
+          <Card key={stat.label}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{stat.label}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-semibold">{stat.value}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>ダッシュボード</CardTitle>
+          <CardTitle>本日の運用サマリ</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-muted-foreground">
-            ようこそ、<span className="font-semibold text-foreground">{user?.displayName}</span>
-            さん
-          </p>
-          <div className="space-y-2 text-sm">
-            <p>
-              <span className="font-medium">メール:</span> {user?.email}
-            </p>
-            <p>
-              <span className="font-medium">ロール:</span> {user?.roles.map(formatRole).join(', ')}
-            </p>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border bg-background p-4">
+            <p className="text-sm text-muted-foreground">業務時間</p>
+            <p className="mt-1 text-lg font-semibold">{systemSettings.businessHours}</p>
+            <p className="mt-2 text-sm text-muted-foreground">AI 応答は {systemSettings.aiEnabled ? '有効' : '無効'} です。</p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link to={`/users/${user?.userId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
-              マイユーザー詳細
-            </Link>
-            {user && canManageUsers(user.roles) && (
-              <Link to="/users" className={cn(buttonVariants({ variant: 'outline' }))}>
-                ユーザー一覧
-              </Link>
-            )}
-            <Button variant="destructive" onClick={handleLogout}>
-              ログアウト
-            </Button>
+          <div className="rounded-xl border bg-background p-4">
+            <p className="text-sm text-muted-foreground">未応答時ルール</p>
+            <p className="mt-1 text-lg font-semibold">{systemSettings.operatorAssignmentRule}</p>
+            <p className="mt-2 text-sm text-muted-foreground">時間外は自動音声で案内後に終了します。</p>
           </div>
         </CardContent>
       </Card>
-    </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>主要メニュー</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          {quickLinks.map((link) => (
+            <Link key={link.to} to={link.to} className={cn(buttonVariants({ variant: 'outline' }), 'h-auto justify-start px-4 py-4')}>
+              <span>
+                <span className="block font-medium text-foreground">{link.label}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{link.description}</span>
+              </span>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+    </AppShell>
   )
 }
