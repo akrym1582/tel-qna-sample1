@@ -9,6 +9,9 @@ namespace Shared.Util;
 /// </summary>
 public static class CallProcessingHelper
 {
+    /// <summary>
+    /// 日本語の短い一致で誤検出しすぎないよう、FAQ 中間一致として扱う最小共通長。
+    /// </summary>
     private const int MinimumMatchLength = 3;
 
     /// <summary>

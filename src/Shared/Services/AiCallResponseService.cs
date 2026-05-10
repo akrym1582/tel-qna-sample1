@@ -13,6 +13,7 @@ public class AiCallResponseService : IAiCallResponseService
 {
     /// <summary>
     /// Azure AI Foundry で代表電話の一次受付に使う realtime モデル名。
+    /// デプロイ設定が別名でも、このモデル系統を前提に応答・要約・転送判断を組み立てる。
     /// </summary>
     private const string ModelName = "gpt-realtime-2";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
@@ -266,17 +267,15 @@ public class AiCallResponseService : IAiCallResponseService
 
             var messageText = Encoding.UTF8.GetString(messageBuffer.ToArray());
             rawMessages.Add(messageText);
+            var isResponseDone = messageText.Contains("\"type\":\"response.done\"", StringComparison.Ordinal);
 
-            if (!TryAppendPayloadText(messageText, textBuilder) &&
-                messageText.Contains("\"type\":\"response.done\"", StringComparison.Ordinal))
+            if (isResponseDone)
             {
+                TryAppendPayloadText(messageText, textBuilder);
                 return textBuilder.Length > 0 ? textBuilder.ToString() : string.Join(Environment.NewLine, rawMessages);
             }
 
-            if (messageText.Contains("\"type\":\"response.done\"", StringComparison.Ordinal))
-            {
-                return textBuilder.Length > 0 ? textBuilder.ToString() : string.Join(Environment.NewLine, rawMessages);
-            }
+            TryAppendPayloadText(messageText, textBuilder);
         }
 
         return textBuilder.Length > 0 ? textBuilder.ToString() : string.Join(Environment.NewLine, rawMessages);

@@ -461,7 +461,7 @@ public class CallCenterRepository : ICallCenterRepository
     }
 
     private string BuildCallId() =>
-        $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N[..4]}";
+        $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N[..8]}";
 
     private string GetCurrentTimestamp() =>
         DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");

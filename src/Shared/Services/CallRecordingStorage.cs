@@ -11,7 +11,10 @@ namespace Shared.Services;
 public class CallRecordingStorage : ICallRecordingStorage
 {
     private const string ContainerName = "call-recordings";
-    private const string NotSavedRecordingLocation = "未保存";
+    private const string NotSavedRecordingLocation = "NOT_SAVED";
+    private const string LegacyNotSavedRecordingLocation = "未保存";
+    private const string RecordingStatus = "recording";
+    private const string CompletedStatus = "completed";
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
     private readonly BlobContainerClient _containerClient;
 
@@ -35,7 +38,9 @@ public class CallRecordingStorage : ICallRecordingStorage
         using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(payload));
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
 
-        return string.IsNullOrWhiteSpace(callRecord.RecordingLocation) || callRecord.RecordingLocation == NotSavedRecordingLocation
+        return string.IsNullOrWhiteSpace(callRecord.RecordingLocation) ||
+            callRecord.RecordingLocation == NotSavedRecordingLocation ||
+            callRecord.RecordingLocation == LegacyNotSavedRecordingLocation
             ? blobClient.Uri.ToString()
             : callRecord.RecordingLocation;
     }
@@ -44,7 +49,7 @@ public class CallRecordingStorage : ICallRecordingStorage
     {
         var latestTranscriptLine = callRecord.Transcript.LastOrDefault();
         var durationSeconds = CallProcessingHelper.CalculateDurationSeconds(callRecord);
-        var recordingStatus = string.IsNullOrWhiteSpace(callRecord.EndedAt) ? "recording" : "completed";
+        var recordingStatus = string.IsNullOrWhiteSpace(callRecord.EndedAt) ? RecordingStatus : CompletedStatus;
         return new
         {
             callId = callRecord.Id,
