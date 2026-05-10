@@ -91,20 +91,30 @@ public class AiTranscriptionService : IAiTranscriptionService
         return new Uri($"{endpoint}/openai/deployments/{deployment}/audio/transcriptions?api-version={apiVersion}");
     }
 
-    private static string BuildAudioFileName(string? audioFileName, string mimeType)
+    private string BuildAudioFileName(string? audioFileName, string mimeType)
     {
         if (!string.IsNullOrWhiteSpace(audioFileName))
         {
             return audioFileName.Trim();
         }
 
-        return mimeType switch
+        var normalizedMimeType = mimeType.Trim().ToLowerInvariant();
+        var extension = normalizedMimeType switch
         {
-            "audio/mp3" => "input.mp3",
-            "audio/mpeg" => "input.mp3",
-            "audio/mp4" => "input.mp4",
-            "audio/webm" => "input.webm",
-            _ => "input.wav",
+            "audio/mp3" => "mp3",
+            "audio/mpeg" => "mp3",
+            _ when normalizedMimeType.StartsWith("audio/", StringComparison.Ordinal) =>
+                normalizedMimeType["audio/".Length..]
+                    .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0]
+                    .Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[0]
+                    .Trim(),
+            _ => "wav",
         };
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            extension = "wav";
+        }
+
+        return $"input.{extension}";
     }
 }
