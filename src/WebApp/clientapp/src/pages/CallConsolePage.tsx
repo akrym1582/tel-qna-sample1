@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { incomingCall, systemSettings } from '@/lib/callCenterData'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { cn } from '@/lib/utils'
 
 type ConsoleState = 'waiting' | 'incoming' | 'ai' | 'rejected'
@@ -23,19 +23,47 @@ const statusLabels: Record<ConsoleState, string> = {
 }
 
 export default function CallConsolePage() {
+  const { data, isLoading } = useCallCenterData()
   const [consoleState, setConsoleState] = useState<ConsoleState>('incoming')
 
-  const currentMessage = useMemo(() => {
-    if (consoleState === 'rejected') {
-      return systemSettings.rejectMessage
-    }
+  if (isLoading) {
+    return (
+      <AppShell
+        title="コール画面"
+        description="着信受付、AI 応答状態、リアルタイム文字起こしを 1 画面で確認できます。"
+      >
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">コール画面のデータを読み込み中です。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
-    if (consoleState === 'ai') {
-      return 'FAQ の一致候補を確認しながら自動応答を継続しています。必要に応じて転送先候補を提示します。'
-    }
+  if (!data) {
+    return (
+      <AppShell
+        title="コール画面"
+        description="着信受付、AI 応答状態、リアルタイム文字起こしを 1 画面で確認できます。"
+      >
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">コール画面のデータを取得できません。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
-    return 'オペレーターによる応答待ちです。20 秒未応答で AI 応答へ切り替える設定です。'
-  }, [consoleState])
+  const incomingCall = data.incomingCall
+
+  const currentMessage =
+    consoleState === 'rejected'
+      ? data.systemSettings.rejectMessage
+      : consoleState === 'ai'
+        ? 'FAQ の一致候補を確認しながら自動応答を継続しています。必要に応じて転送先候補を提示します。'
+        : 'オペレーターによる応答待ちです。20 秒未応答で AI 応答へ切り替える設定です。'
 
   return (
     <AppShell
@@ -140,15 +168,15 @@ export default function CallConsolePage() {
               <dl className="mt-4 space-y-3 text-sm">
                 <div>
                   <dt className="text-muted-foreground">業務時間</dt>
-                  <dd className="font-medium">{systemSettings.businessHours}</dd>
+                  <dd className="font-medium">{data.systemSettings.businessHours}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">AI 応答</dt>
-                  <dd className="font-medium">{systemSettings.aiEnabled ? '有効' : '無効'}</dd>
+                  <dd className="font-medium">{data.systemSettings.aiEnabled ? '有効' : '無効'}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">未応答時ルール</dt>
-                  <dd className="font-medium">{systemSettings.operatorAssignmentRule}</dd>
+                  <dd className="font-medium">{data.systemSettings.operatorAssignmentRule}</dd>
                 </div>
               </dl>
             </div>

@@ -3,20 +3,23 @@ import { Link } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { callRecords } from '@/lib/callCenterData'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { cn } from '@/lib/utils'
 
 export default function CallListPage() {
+  const { data, isLoading } = useCallCenterData()
   const [statusFilter, setStatusFilter] = useState('all')
   const [modeFilter, setModeFilter] = useState('all')
 
   const filteredCalls = useMemo(() => {
+    const callRecords = data?.callRecords ?? []
+
     return callRecords.filter((callRecord) => {
       const statusMatched = statusFilter === 'all' || callRecord.status === statusFilter
       const modeMatched = modeFilter === 'all' || callRecord.responseMode === modeFilter
       return statusMatched && modeMatched
     })
-  }, [modeFilter, statusFilter])
+  }, [data?.callRecords, modeFilter, statusFilter])
 
   return (
     <AppShell
@@ -68,44 +71,50 @@ export default function CallListPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/60 text-left">
-                <tr>
-                  <th className="px-3 py-3">通話ID</th>
-                  <th className="px-3 py-3">日時</th>
-                  <th className="px-3 py-3">顧客</th>
-                  <th className="px-3 py-3">状態</th>
-                  <th className="px-3 py-3">応答方式</th>
-                  <th className="px-3 py-3">対応者</th>
-                  <th className="px-3 py-3">詳細</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCalls.map((callRecord) => (
-                  <tr key={callRecord.id} className="border-t">
-                    <td className="px-3 py-3 font-medium">{callRecord.id}</td>
-                    <td className="px-3 py-3">{callRecord.receivedAt}</td>
-                    <td className="px-3 py-3">
-                      <div>{callRecord.customerName}</div>
-                      <div className="text-xs text-muted-foreground">{callRecord.callerNumber}</div>
-                    </td>
-                    <td className="px-3 py-3">{callRecord.status}</td>
-                    <td className="px-3 py-3">{callRecord.responseMode}</td>
-                    <td className="px-3 py-3">{callRecord.operatorName}</td>
-                    <td className="px-3 py-3">
-                      <Link
-                        to={`/calls/${callRecord.id}`}
-                        className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
-                      >
-                        詳細
-                      </Link>
-                    </td>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">通話一覧を読み込み中です。</p>
+          ) : !data ? (
+            <p className="text-sm text-muted-foreground">通話一覧を取得できません。</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/60 text-left">
+                  <tr>
+                    <th className="px-3 py-3">通話ID</th>
+                    <th className="px-3 py-3">日時</th>
+                    <th className="px-3 py-3">顧客</th>
+                    <th className="px-3 py-3">状態</th>
+                    <th className="px-3 py-3">応答方式</th>
+                    <th className="px-3 py-3">対応者</th>
+                    <th className="px-3 py-3">詳細</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filteredCalls.map((callRecord) => (
+                    <tr key={callRecord.id} className="border-t">
+                      <td className="px-3 py-3 font-medium">{callRecord.id}</td>
+                      <td className="px-3 py-3">{callRecord.receivedAt}</td>
+                      <td className="px-3 py-3">
+                        <div>{callRecord.customerName}</div>
+                        <div className="text-xs text-muted-foreground">{callRecord.callerNumber}</div>
+                      </td>
+                      <td className="px-3 py-3">{callRecord.status}</td>
+                      <td className="px-3 py-3">{callRecord.responseMode}</td>
+                      <td className="px-3 py-3">{callRecord.operatorName}</td>
+                      <td className="px-3 py-3">
+                        <Link
+                          to={`/calls/${callRecord.id}`}
+                          className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+                        >
+                          詳細
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </AppShell>

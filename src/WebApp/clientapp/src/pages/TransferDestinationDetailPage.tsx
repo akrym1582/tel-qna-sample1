@@ -2,12 +2,26 @@ import { Link, useParams } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { getTransferDestination } from '@/lib/callCenterData'
 import { cn } from '@/lib/utils'
 
 export default function TransferDestinationDetailPage() {
   const { destinationId = '' } = useParams()
-  const destination = getTransferDestination(destinationId)
+  const { data, isLoading } = useCallCenterData()
+  const destination = data ? getTransferDestination(data, destinationId) : undefined
+
+  if (isLoading) {
+    return (
+      <AppShell title="転送先詳細画面" description="転送先の営業時間、優先度、ヒント情報、フォールバック先を確認できます。">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">転送先詳細を読み込み中です。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
   if (!destination) {
     return (

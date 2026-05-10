@@ -23,10 +23,12 @@ builder.Services.AddSingleton(_ =>
 
 // --- Repositories & Services ---
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<ICallCenterRepository, CallCenterRepository>();
 builder.Services.AddSingleton(
     builder.Configuration.GetSection("UserManagement").Get<Shared.Util.UserManagementSettings>()
     ?? new Shared.Util.UserManagementSettings());
 builder.Services.AddSingleton<IUserService, UserService>();
+builder.Services.AddSingleton<ICallCenterService, CallCenterService>();
 builder.Services.AddSingleton(sp => new Lazy<IUserService>(() => sp.GetRequiredService<IUserService>()));
 builder.Services.Configure<TestLoginOptions>(builder.Configuration.GetSection("TestLogin"));
 builder.Services.AddAntiforgery(options =>

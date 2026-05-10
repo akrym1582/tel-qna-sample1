@@ -94,7 +94,8 @@ builder.Services.AddSingleton<IUserService, UserService>();
 
 - `src/pages/` に画面コンポーネントを配置する
 - `src/components/AppShell.tsx` を画面共通レイアウトとして使う
-- 初期フェーズの画面データは `src/lib/callCenterData.ts` に集約する
+- `src/lib/callCenterData.ts` には画面で使う型定義と参照ヘルパーを配置する
+- 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
 - `src/api/` 配下の aspida 生成物は手動編集しない
 - UI に表示するラベル・メッセージ・説明文はすべて日本語で記述する
 - `export default` で画面コンポーネントをエクスポートする
@@ -103,14 +104,14 @@ builder.Services.AddSingleton<IUserService, UserService>();
 ### データフェッチ
 
 - 既存認証系 API は aspida 経由で利用する
-- 初期フェーズの電話受付系 UI はモックデータで構成する
+- 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` の固定レスポンスを利用する
 - API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
 ### 画面追加時の方針
 
-- まず画面要件に沿ったモック UI を追加する
-- 次に必要な型とモックデータを `src/lib/callCenterData.ts` に追加する
-- 実 API 化するときは、モックデータを API 呼び出しに置き換えても画面責務が変わらない構成を維持する
+- まず画面要件に沿った UI を追加する
+- 次に必要な型を `src/lib/callCenterData.ts` に追加し、固定データはバックエンドの `CallCenterRepository` に追加する
+- 実データ化するときは、コントローラー・サービス・リポジトリの責務を維持したまま永続化実装へ置き換える
 
 ---
 

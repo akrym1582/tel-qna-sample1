@@ -36,7 +36,9 @@ TemplateApp.slnx
 
 ## フロントエンドの実装方針
 
-- `src/WebApp/clientapp/src/lib/callCenterData.ts` に初期フェーズ用のモックデータを集約
+- `src/WebApp/Controllers/CallCenterController.cs` が初期フェーズ用の画面データ API を提供
+- フロントエンドは `/api/call-center/bootstrap` から画面データを取得する
+- `src/WebApp/clientapp/src/lib/callCenterData.ts` はフロントエンド側の型定義と参照ヘルパーを保持する
 - 画面間の導線は `AppShell` のサイドナビゲーションで提供
 - UI テキストはすべて日本語
 - アラート / 確認ダイアログは `@/lib/alert` を利用
@@ -51,7 +53,7 @@ TemplateApp.slnx
 - システムプロンプト
 - システム設定
 
-将来的にはこれらを API + Azure Storage / Search / OpenAI 連携へ置き換える想定です。
+現時点ではバックエンドの `CallCenterRepository` が固定データを返し、将来的にはこれらを API + Azure Storage / Search / OpenAI 連携へ置き換える想定です。
 
 ## 技術スタック
 
@@ -59,6 +61,7 @@ TemplateApp.slnx
 - ASP.NET 10
 - Cookie 認証 + Azure Entra ID
 - Azure Table Storage（既存ユーザー管理）
+- 初期フェーズ向け CallCenter API (`GET /api/call-center/bootstrap`)
 - xUnit + NSubstitute
 
 ### フロントエンド

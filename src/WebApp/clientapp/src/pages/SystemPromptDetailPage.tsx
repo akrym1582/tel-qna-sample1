@@ -2,12 +2,26 @@ import { Link, useParams } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { getSystemPrompt } from '@/lib/callCenterData'
 import { cn } from '@/lib/utils'
 
 export default function SystemPromptDetailPage() {
   const { promptId = '' } = useParams()
-  const prompt = getSystemPrompt(promptId)
+  const { data, isLoading } = useCallCenterData()
+  const prompt = data ? getSystemPrompt(data, promptId) : undefined
+
+  if (isLoading) {
+    return (
+      <AppShell title="システムプロンプト詳細画面" description="AI 応答に利用するプロンプト内容とバージョン情報を確認できます。">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">システムプロンプト詳細を読み込み中です。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
   if (!prompt) {
     return (

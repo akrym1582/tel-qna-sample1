@@ -2,12 +2,26 @@ import { Link, useParams } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { getCallRecord } from '@/lib/callCenterData'
 import { cn } from '@/lib/utils'
 
 export default function CallDetailPage() {
   const { callId = '' } = useParams()
-  const callRecord = getCallRecord(callId)
+  const { data, isLoading } = useCallCenterData()
+  const callRecord = data ? getCallRecord(data, callId) : undefined
+
+  if (isLoading) {
+    return (
+      <AppShell title="コール詳細画面" description="通話単位の詳細情報、文字起こし、AI サマリ、転送履歴を確認できます。">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">通話詳細を読み込み中です。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
   if (!callRecord) {
     return (

@@ -2,12 +2,26 @@ import { Link, useParams } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { getFaqItem } from '@/lib/callCenterData'
 import { cn } from '@/lib/utils'
 
 export default function FaqDetailPage() {
   const { faqId = '' } = useParams()
-  const faqItem = getFaqItem(faqId)
+  const { data, isLoading } = useCallCenterData()
+  const faqItem = data ? getFaqItem(data, faqId) : undefined
+
+  if (isLoading) {
+    return (
+      <AppShell title="FAQ詳細画面" description="FAQ の回答内容、カテゴリ、検索ヒントを確認できます。">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">FAQ 詳細を読み込み中です。</p>
+          </CardContent>
+        </Card>
+      </AppShell>
+    )
+  }
 
   if (!faqItem) {
     return (

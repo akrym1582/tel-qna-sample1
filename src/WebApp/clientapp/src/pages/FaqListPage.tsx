@@ -3,15 +3,17 @@ import { Link } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { faqItems } from '@/lib/callCenterData'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { cn } from '@/lib/utils'
 
 export default function FaqListPage() {
+  const { data, isLoading } = useCallCenterData()
   const [categoryFilter, setCategoryFilter] = useState('all')
 
   const filteredFaqs = useMemo(() => {
+    const faqItems = data?.faqItems ?? []
     return faqItems.filter((faqItem) => categoryFilter === 'all' || faqItem.category === categoryFilter)
-  }, [categoryFilter])
+  }, [categoryFilter, data?.faqItems])
 
   return (
     <AppShell title="FAQ一覧画面" description="AI 応答に利用する FAQ を一覧表示します。">
@@ -31,7 +33,7 @@ export default function FaqListPage() {
               onChange={(event) => setCategoryFilter(event.target.value)}
             >
               <option value="all">すべて</option>
-              {[...new Set(faqItems.map((faqItem) => faqItem.category))].map((category) => (
+              {[...new Set((data?.faqItems ?? []).map((faqItem) => faqItem.category))].map((category) => (
                 <option key={category} value={category}>
                   {category}
                 </option>
@@ -39,28 +41,44 @@ export default function FaqListPage() {
             </select>
           </div>
 
-          <div className="grid gap-4">
-            {filteredFaqs.map((faqItem) => (
-              <div key={faqItem.id} className="rounded-xl border bg-background p-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{faqItem.id}</p>
-                    <h3 className="mt-1 font-medium">{faqItem.question}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">カテゴリ: {faqItem.category}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">キーワード: {faqItem.keywords.join(' / ')}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={cn('rounded-full px-3 py-1 text-xs font-medium', faqItem.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-secondary text-secondary-foreground')}>
-                      {faqItem.enabled ? '有効' : '無効'}
-                    </span>
-                    <Link to={`/faqs/${faqItem.id}`} className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}>
-                      詳細
-                    </Link>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">FAQ 一覧を読み込み中です。</p>
+          ) : !data ? (
+            <p className="text-sm text-muted-foreground">FAQ 一覧を取得できません。</p>
+          ) : (
+            <div className="grid gap-4">
+              {filteredFaqs.map((faqItem) => (
+                <div key={faqItem.id} className="rounded-xl border bg-background p-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{faqItem.id}</p>
+                      <h3 className="mt-1 font-medium">{faqItem.question}</h3>
+                      <p className="mt-2 text-sm text-muted-foreground">カテゴリ: {faqItem.category}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        キーワード: {faqItem.keywords.join(' / ')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          'rounded-full px-3 py-1 text-xs font-medium',
+                          faqItem.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-secondary text-secondary-foreground',
+                        )}
+                      >
+                        {faqItem.enabled ? '有効' : '無効'}
+                      </span>
+                      <Link
+                        to={`/faqs/${faqItem.id}`}
+                        className={cn(buttonVariants({ size: 'sm', variant: 'outline' }))}
+                      >
+                        詳細
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </AppShell>

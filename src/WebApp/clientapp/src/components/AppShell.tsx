@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { alert } from '@/lib/alert'
-import { currentOperator } from '@/lib/callCenterData'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +26,8 @@ interface AppShellProps {
 export default function AppShell({ title, description, actions, children }: AppShellProps) {
   const location = useLocation()
   const { logout } = useAuth()
+  const { data } = useCallCenterData()
+  const currentOperator = data?.currentOperator
 
   const handleLogout = async () => {
     const confirmed = await alert.confirm('ログアウトしますか？')
@@ -48,9 +50,9 @@ export default function AppShell({ title, description, actions, children }: AppS
           </div>
           <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
             <div className="rounded-lg border bg-card px-4 py-2 text-sm">
-              <p className="font-medium">{currentOperator.name}</p>
+              <p className="font-medium">{currentOperator?.name ?? 'オペレーター情報を取得中...'}</p>
               <p className="text-muted-foreground">
-                {currentOperator.role} / {currentOperator.team}
+                {currentOperator ? `${currentOperator.role} / ${currentOperator.team}` : '少々お待ちください'}
               </p>
             </div>
             <Button variant="outline" onClick={() => void handleLogout()}>
@@ -65,15 +67,20 @@ export default function AppShell({ title, description, actions, children }: AppS
           <nav className="flex flex-col gap-1">
             {navigationItems.map((item) => {
               const isActive = item.match.some((prefix) =>
-                prefix === '/' ? location.pathname === '/' : location.pathname === prefix || location.pathname.startsWith(`${prefix}/`),
+                prefix === '/'
+                  ? location.pathname === '/'
+                  : location.pathname === prefix || location.pathname.startsWith(`${prefix}/`),
               )
+
               return (
                 <Link
                   key={item.to}
                   to={item.to}
                   className={cn(
                     'rounded-lg px-3 py-2 text-sm transition-colors',
-                    isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
                   {item.label}
