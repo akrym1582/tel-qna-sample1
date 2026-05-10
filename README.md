@@ -1,61 +1,98 @@
-# Template React + .NET
+# 電話受付・AI応答システム
 
-React 19 + ASP.NET 10 フルスタックテンプレートプロジェクト
+Azure Communication Services を利用した電話受付・AI 応答システムの初期フェーズ用リポジトリです。React 19 + ASP.NET 10 テンプレートをベースに、Azure Table Storage へ保存される電話受付データ、ACS 互換 webhook を使った着信取り込み、Azure AI Foundry `gpt-realtime-2` を使った AI 応答・要約・録音アーカイブ更新まで確認できる状態にしています。
 
-> **ドキュメントメンテナンスルール**: 技術スタック・アーキテクチャ・規約・開発手順を変更した場合は、このファイル (`README.md`) と [`.github/copilot-instructions.md`](.github/copilot-instructions.md) の**両方**を必ず更新してください。
+> **ドキュメントメンテナンスルール**: 技術スタック・アーキテクチャ・画面構成・開発手順を変更した場合は、このファイル (`README.md`) と [`.github/copilot-instructions.md`](.github/copilot-instructions.md) の**両方**を必ず更新してください。
+
+## 初期フェーズで提供する画面
+
+- ログイン画面
+- コール画面
+- コール一覧画面
+- コール詳細画面
+- FAQ 一覧 / 詳細画面
+- 転送先一覧 / 詳細画面
+- システムプロンプト一覧 / 詳細画面
+- システム設定画面
+
+> ブラウザ通話そのものは未実装ですが、`POST /api/acs/events` で ACS / Event Grid 互換イベントを受け取り、`POST /api/call-center/test-calls` でブラウザからテスト着信を作成できます。コール画面から文字起こしの追記と AI 応答生成を行うと、要約と録音アーカイブ JSON を更新できます。
 
 ## プロジェクト構成
 
 ```
-├── TemplateApp.slnx          # ソリューションファイル
+TemplateApp.slnx
 ├── src/
-│   ├── Shared/                # 共有ライブラリ (Shared.csproj)
-│   │   ├── Dto/               # データ転送オブジェクト
-│   │   ├── Models/            # エンティティモデル (Azure Table Storage)
-│   │   ├── Repository/        # リポジトリ層
-│   │   ├── Services/          # ビジネスロジック層
-│   │   └── Util/              # ユーティリティ
-│   └── WebApp/                # Web API (WebApp.csproj)
-│       ├── Controllers/       # API コントローラー
-│       └── clientapp/         # React クライアント
-│           ├── src/
-│           │   ├── components/ui/  # shadcn/ui コンポーネント
-│           │   ├── hooks/          # React Hooks (useAuth, useApi)
-│           │   ├── lib/            # ユーティリティ (alert, aspida, utils)
-│           │   ├── pages/          # ページコンポーネント
-│           │   └── api/            # aspida 生成 API 型定義
-│           └── ...
-└── tests/                     # xUnit テスト (Tests.csproj)
+│   ├── Shared/                        # 共有 DTO / Repository / Service / Util
+│   └── WebApp/
+│       ├── Controllers/              # 認証・ユーザー API
+│       └── clientapp/
+│           └── src/
+│               ├── components/       # AppShell, ui コンポーネント
+│               ├── lib/              # alert, aspida, mock データ
+│               ├── pages/            # 各画面コンポーネント
+│               └── __tests__/        # vitest テスト
+└── tests/                            # xUnit テスト
 ```
+
+## フロントエンドの実装方針
+
+- `src/WebApp/Controllers/CallCenterController.cs` が初期フェーズ用の画面データ API を提供
+- フロントエンドは `/api/call-center/bootstrap` から画面データを取得する
+- `src/WebApp/clientapp/src/lib/callCenterData.ts` はフロントエンド側の型定義と参照ヘルパーを保持する
+- AI 応答生成は `POST /api/call-center/current-call/ai-response` から実行し、Azure AI Foundry `gpt-realtime-2` を優先利用する
+- FAQ 候補抽出はベクトル検索を使わず、文字起こし・顧客要約に対する文字列中間一致検索で行う
+- 文字起こし追加は `POST /api/call-center/current-call/transcript` で行い、録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
+- 画面間の導線は `AppShell` のサイドナビゲーションで提供
+- UI テキストはすべて日本語
+- アラート / 確認ダイアログは `@/lib/alert` を利用
+- 既存認証基盤はそのまま利用し、ログイン後に電話受付 UI を表示
+
+## 主なモックデータ
+
+- 通話履歴
+- 着信中コール情報
+- FAQ
+- 転送先マスタ
+- システムプロンプト
+- システム設定
+
+現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ 候補は文字起こし全文・最新発話・顧客要約に対する文字列中間一致検索で抽出します。
+AI 応答は Azure AI Foundry `gpt-realtime-2` を利用する構成で、未設定時や接続失敗時はサンプル応答へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
 
 ## 技術スタック
 
 ### バックエンド
-- **ASP.NET 10** - Web API
-- **SpaProxy** - 開発時の SPA 起動/リダイレクト
-- **Azure Table Storage** - ユーザー情報管理
-- **Azure Blob Storage** / **Queue Storage** / **Cosmos DB** - インフラ
-- **Cookie認証** + **Azure Entra ID** (JWT → Cookie)
-- **NuGet Central Package Management** - `Directory.Packages.props` で .NET パッケージ バージョンを一元管理
-- **StyleCop.Analyzers** - C# コーディング規約を共通化（`SA1101` / `SA1200` / `SA1309` / `SA1629` / `SA1633`、および同名の generic / non-generic DTO 対応のため `SA1649` を無効化）
-- **XSRF 対策** - ログイン時にトークン cookie を発行し、以降の API リクエストで `X-XSRF-TOKEN` を検証
+- ASP.NET 10
+- Cookie 認証 + Azure Entra ID
+- Azure Table Storage（ユーザー管理 + CallCenterState 永続化）
+- Azure Blob Storage（`call-recordings` 録音アーカイブ）
+- CallCenter API (`GET /api/call-center/bootstrap`, `PUT /api/call-center/...`)
+- テスト着信 / 通話状態更新 API (`POST /api/call-center/test-calls`, `PUT /api/call-center/current-call/actions/{action}`)
+- 文字起こし / AI 応答 API (`POST /api/call-center/current-call/transcript`, `POST /api/call-center/current-call/ai-response`)
+- ACS / Event Grid 互換 webhook (`POST /api/acs/events`)
+- Azure AI Foundry Realtime (`gpt-realtime-2`)
+- xUnit + NSubstitute
 
 ### フロントエンド
-- **React 19** + **TypeScript**
-- **Vite** - ビルドツール
-- **事前圧縮済み配信** - production build 時に `dist/` 配下へ `.gz` / `.br` を生成し、ASP.NET 側で優先配信
-- **TailwindCSS 4** - スタイリング
-- **shadcn/ui** - UIコンポーネント
-- **oxlint** - リンター
-- **aspida** + **@aspida/swr** - 型安全なAPI呼び出し
-- **SweetAlert2** - ポップアップアラート/確認ダイアログ
+- React 19 + TypeScript
+- Vite
+- TailwindCSS 4
+- shadcn/ui
+- aspida
+- oxlint
+- vitest + Testing Library
 
 ## 開発方法
 
 ### 前提条件
 - .NET 10 SDK
 - Node.js 20+
-- Azure Storage Emulator (Azurite)
+
+### フロントエンド依存関係のインストール
+```bash
+cd src/WebApp/clientapp
+npm install
+```
 
 ### バックエンド起動
 ```bash
@@ -63,77 +100,53 @@ cd src/WebApp
 dotnet run
 ```
 
-開発環境では SpaProxy が `clientapp` の Vite 開発サーバー (`http://localhost:5173`) を利用します。
+### Azurite を使う場合
+```bash
+azurite --silent --location /tmp/azurite --debug /tmp/azurite/debug.log
+```
 
-### フロントエンド起動 (開発サーバー)
+### Azure AI Foundry 設定
+`src/WebApp/appsettings.json` またはユーザー シークレットに以下を設定すると、AI 応答生成で Azure AI Foundry `gpt-realtime-2` を利用します。
+
+```json
+"AzureAiFoundry": {
+  "Endpoint": "https://<resource>.openai.azure.com",
+  "Deployment": "gpt-realtime-2",
+  "ApiKey": "<api-key>",
+  "ApiVersion": "2025-04-01-preview",
+  "UseMockWhenUnavailable": true
+}
+```
+
+### フロントエンド起動
 ```bash
 cd src/WebApp/clientapp
-npm install
 npm run dev
 ```
 
-`dotnet run` で WebApp を起動した状態から `http://localhost:5000` にアクセスすると、SpaProxy が Vite 開発サーバーへリダイレクトします。
-開発時の API リクエストは Vite 側が `/api` を WebApp (ポート5000) にプロキシ転送します。
-API フェッチ時は原則 `credentials: 'same-origin'` で Cookie 認証情報を送信します。
-クライアント共通モジュールが `XSRF-TOKEN` cookie を自動で `X-XSRF-TOKEN` ヘッダーに付与するため、通常の API 呼び出しでは個別対応は不要です。
-
-### フロントエンド production ビルド
+### バックエンドテスト
 ```bash
-cd src/WebApp/clientapp
-npm run build
+dotnet test tests/Tests.csproj
 ```
 
-production ビルドでは `dist/` 配下の生成ファイルとあわせて `.gz` / `.br` も出力されます。  
-WebApp の本番静的ファイル配信では、クライアントが Brotli / gzip をサポートしていれば事前圧縮済みファイルをそのまま返します。
-
-### API クライアント生成 (aspida)
-```bash
-# WebApp を起動した状態で:
-cd src/WebApp/clientapp
-npm run generate-api
-```
-
-`generate-api` は `src/api` を再生成し、WebApp が公開する `/api/openapi/v1.json` を参照します。
-
-### テスト実行
-```bash
-dotnet test
-```
-
-### リント
+### フロントエンド検証
 ```bash
 cd src/WebApp/clientapp
 npm run lint
+npm run test
+npm run build
 ```
 
-## 認証フロー
+## 動作確認用 API
 
-### パスワード認証
-1. ユーザーがメール/パスワードで `POST /api/auth/login`
-2. 認証成功で Cookie セッション発行
-3. 以降 Cookie で認証
+- `POST /api/call-center/test-calls`: 認証済み画面からテスト着信を作成
+- `PUT /api/call-center/current-call/actions/receive|ai|reject`: 現在着信の状態を更新
+- `POST /api/call-center/current-call/transcript`: 現在着信に顧客 / オペレーター発話を追加
+- `POST /api/call-center/current-call/ai-response`: Azure AI Foundry `gpt-realtime-2` で応答・要約・転送判断を生成
+- `POST /api/acs/events`: Event Grid 互換の配列 payload を受信して着信 / 接続 / 終話を反映
 
-### 開発環境向けテストログイン
-- `src/WebApp/appsettings.json` の `TestLogin:Users` にユーザーIDとロールを複数定義できます
-- 開発環境では `GET /api/auth/test-users` でテストユーザー一覧を取得できます
-- 開発環境では `POST /api/auth/test-login` に `userId` を送るとパスワードなしで Cookie セッションを発行できます
-- ログイン画面には設定済みのテストユーザーがボタン表示されます
-- テストログインのロールは `general` / `manager` / `privileged` を使用します
+## 今後の実装候補
 
-### Azure Entra ID 認証
-1. クライアントで Entra ID から JWT トークン取得
-2. `POST /api/auth/entra-login` で JWT を送信
-3. サーバーで JWT 検証、ユーザー自動作成/取得
-4. Cookie セッション発行
-5. 同時に `XSRF-TOKEN` cookie を発行
-6. 以降 Cookie で認証しつつ、`X-XSRF-TOKEN` ヘッダーを送信
-
-## ユーザー管理
-
-- Azure Table Storage に保存 (PartitionKey: "USER", RowKey: UserId)
-- ユーザー一覧では店番プルダウンで絞り込み表示できます
-- ユーザー詳細ではユーザーGUIDを固定IDとして表示し、表示名・ユーザーID（メールアドレス）を更新できます
-- ロールは `general` / `manager` / `privileged` を `RolesJson` に保存します
-- `manager` 以上は他ユーザー詳細とロールを更新できます
-- `UserManagement:AllowManagerUserCreation` が `true` のとき、`manager` 以上はユーザー追加できます
-- パスワード初期化文字列とポリシーは `UserManagement` セクションで設定します
+- ACS 音声ストリームと録音アーカイブの本格連携
+- 録音音声本体の保存と自動文字起こし連携
+- 顧客管理、監査ログ、マスタ管理の本実装

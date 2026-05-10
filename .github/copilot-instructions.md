@@ -9,7 +9,11 @@
 
 ## プロジェクト概要
 
-React 19 + ASP.NET 10 のフルスタックテンプレートプロジェクトです。
+電話受付・AI 応答システムの初期フェーズ実装です。
+
+- フロントエンドは最低限必要な画面を提供し、ブラウザからテスト着信を作成できる
+- バックエンドは既存の認証・ユーザー管理基盤を保持する
+- 将来的に ACS、FAQ 中間一致検索の高度化、転送判断 API へ拡張する前提で UI を整理する
 
 ```
 TemplateApp.slnx
@@ -33,88 +37,17 @@ TemplateApp.slnx
 
 ### コントローラー規約
 
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class SampleController : ControllerBase
-{
-    private readonly ISampleService _sampleService;
-
-    public SampleController(ISampleService sampleService)
-    {
-        _sampleService = sampleService;
-    }
-}
-```
-
 - すべてのエンドポイントは `ActionResult<ApiResponseDto<T>>` または `ActionResult<ApiResponseDto>` を返す
 - 認証が必要なエンドポイントには `[Authorize]` を付与する
-- 管理者専用エンドポイントには `[Authorize(Roles = "admin")]` を付与する
 - 認証失敗は `Unauthorized(new ApiResponseDto(false, "メッセージ"))` を返す
 - リソース未発見は `NotFound(new ApiResponseDto(false, "メッセージ"))` を返す
 - 成功は `Ok(new ApiResponseDto<T>(true, data))` を返す
 
 ### サービス規約
 
-```csharp
-public class UserService : IUserService
-{
-    private readonly IUserRepository _repository;
-
-    public UserService(IUserRepository repository)
-    {
-        _repository = repository;
-    }
-
-    public async Task<UserDto?> GetByIdAsync(string userId)
-    {
-        var entity = await _repository.GetByIdAsync(userId);
-        return entity is null ? null : ToDto(entity);
-    }
-}
-```
-
 - すべての公開メソッドは `async Task<T>` を使う
 - `null` チェックは `is null` / `is not null` パターンマッチングを使う
 - Entity → DTO 変換は `private static ToDto(entity)` メソッドで行う
-
-### リポジトリ規約
-
-- インターフェース (`IUserRepository`) をサービス層で依存する
-- Azure Table Storage を使用: `PartitionKey` は定数 (`Constants.UserPartitionKey`)、`RowKey` は ID
-
-### DTO 規約
-
-```csharp
-// Shared.Dto に record で定義
-public record UserDto(
-    string UserId,
-    string Email,
-    string DisplayName,
-    IReadOnlyList<string> Roles,
-    bool IsActive);
-
-// 統一 API レスポンス型
-public record ApiResponseDto<T>(bool Success, T? Data = default, string? Message = null);
-public record ApiResponseDto(bool Success, string? Message = null);
-```
-
-- DTO は `record` で定義する
-- `Shared.Dto` 名前空間に配置する
-
-### 認証
-
-- Cookie セッション + Azure Entra ID (JWT → Cookie) の 2 通りをサポート
-- ローカルログイン: `POST /api/auth/login` (email/password → Cookie)
-- Entra ID ログイン: `POST /api/auth/entra-login` (idToken → Cookie)
-- Cookie 名は `Constants.AuthCookieName` を参照する
-
-### 定数
-
-- ロール: `Constants.Roles.General` (`"general"`), `Constants.Roles.Manager` (`"manager"`), `Constants.Roles.Privileged` (`"privileged"`)
-- テーブル名: `Constants.UsersTableName`
-- Cookie 名: `Constants.AuthCookieName`
-- `UserManagement` セクションで初期パスワード、パスワードポリシー、役席以上のユーザー追加可否を設定する
 
 ### DI 登録 (`Program.cs`)
 
@@ -127,8 +60,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 
 - .NET のパッケージ バージョンはリポジトリ ルートの `Directory.Packages.props` で中央管理する
 - 各 `.csproj` の `PackageReference` には `Version` を直書きしない
-- C# プロジェクトには `StyleCop.Analyzers` を共通適用し、`SA1101` / `SA1200` / `SA1309` / `SA1629` / `SA1633`、および同名の generic / non-generic DTO 対応のため `SA1649` は無効化する
-- 開発時の SPA 統合は SpaProxy を使い、`UseSpa` / `UseProxyToSpaDevelopmentServer` は使わず `WebApp.csproj` と `launchSettings.json` で設定する
+- C# プロジェクトには `StyleCop.Analyzers` を共通適用する
 
 ---
 
@@ -139,187 +71,88 @@ builder.Services.AddSingleton<IUserService, UserService>();
 | ツール | 用途 |
 |--------|------|
 | Vite | ビルド・開発サーバー |
-| 事前圧縮済み配信 | production build 時に `.gz` / `.br` を生成し、ASP.NET 側で優先配信 |
 | TailwindCSS 4 | スタイリング |
 | shadcn/ui | UI コンポーネント |
-| aspida + @aspida/swr | 型安全 API 呼び出し + データフェッチ |
-| SweetAlert2 | ポップアップ・確認ダイアログ |
+| aspida | 型安全 API 呼び出し |
 | oxlint | リンター |
 | vitest + @testing-library/react | テスト |
 
-### パスエイリアス
+### 画面構成
 
-`@/` は `src/` のエイリアス。
+初期フェーズでは以下を提供する。
 
-```typescript
-import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/button'
-import { alert } from '@/lib/alert'
-```
+- ログイン画面
+- ダッシュボード画面
+- コール画面
+- コール一覧 / 詳細画面
+- FAQ 一覧 / 詳細画面
+- 転送先一覧 / 詳細画面
+- システムプロンプト一覧 / 詳細画面
+- システム設定画面
 
-### コンポーネント規約
+### 実装規約
 
-- `export default` でエクスポートする
-- shadcn/ui コンポーネント (`@/components/ui/`) を優先して使用する
-- 新しい shadcn/ui コンポーネントが必要な場合: `npx shadcn@latest add <component>`
-
-```tsx
-export default function SamplePage() {
-  return (
-    <div className="container mx-auto p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>タイトル</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* コンテンツ */}
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-```
+- `src/pages/` に画面コンポーネントを配置する
+- `src/components/AppShell.tsx` を画面共通レイアウトとして使う
+- `src/lib/callCenterData.ts` には画面で使う型定義と参照ヘルパーを配置する
+- 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
+- FAQ / 転送先 / システム設定だけでなく、現在着信の操作やテスト着信作成も call center API 経由で行う
+- 文字起こし追加は `POST /api/call-center/current-call/transcript`、AI 応答生成は `POST /api/call-center/current-call/ai-response` を使う
+- FAQ 候補抽出はベクトル検索ではなく、文字起こし全文・顧客要約に対する文字列中間一致検索を使う
+- `src/api/` 配下の aspida 生成物は手動編集しない
+- UI に表示するラベル・メッセージ・説明文はすべて日本語で記述する
+- `export default` で画面コンポーネントをエクスポートする
+- ダイアログ / 通知は `@/lib/alert` を利用し、SweetAlert2 を直接呼び出さない
 
 ### データフェッチ
 
-**API クライアント (aspida)**:
-```typescript
-import api from '@/api/$api'
-import { aspidaClient } from '@/lib/aspida'
+- 既存認証系 API は aspida 経由で利用する
+- 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` のレスポンスを利用する
+- FAQ / 転送先 / システム設定の変更は call center 用 API に送信する
+- テスト着信は `POST /api/call-center/test-calls`、着信操作は `PUT /api/call-center/current-call/actions/{action}` を使う
+- AI 応答は Azure AI Foundry `gpt-realtime-2` を優先利用し、未設定時はサンプル応答へフォールバックする
+- 録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
+- 録音アーカイブ JSON には文字起こし全文、最新発話、要約、イベント、転送情報を含める
+- API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
-const sampleApi = api(aspidaClient).sample
-```
+### 画面追加時の方針
 
-**SWR フック**:
-```typescript
-import { useApi } from '@/hooks/useApi'
-
-const { data, error, isLoading } = useApi<SomeType>(path)
-```
-
-- SWR を使うときは `swr` の `useSWR` ではなく `@aspida/swr` の `useAspidaSWR` を使う
-- API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する（ログインなど明示的な例外を除く）
-
-**認証状態**:
-```typescript
-import { useAuth } from '@/hooks/useAuth'
-
-const { user, isLoading, login, logout, entraLogin } = useAuth()
-```
-
-### ダイアログ・アラート
-
-`@/lib/alert` を使用する。直接 SweetAlert2 を呼び出さない。
-
-```typescript
-import { alert } from '@/lib/alert'
-
-await alert.success('保存しました。')
-await alert.error('エラーが発生しました。')
-const ok = await alert.confirm('削除しますか？')
-const result = await alert.withLoading(() => someAsyncAction())
-```
-
-### API クライアント生成
-
-```bash
-# WebApp を起動した状態で:
-cd src/WebApp/clientapp
-npm run generate-api
-```
-
-aspida が `src/api/` 配下を自動生成するため、このディレクトリは手動編集しない。
-
-### production ビルド
-
-```bash
-cd src/WebApp/clientapp
-npm run build
-```
-
-- production ビルドでは `dist/` 配下に生成ファイル本体と `.gz` / `.br` を出力する
-- ASP.NET 側の本番静的ファイル配信では、`Accept-Encoding` に応じて事前圧縮済みファイルを優先配信する
+- まず画面要件に沿った UI を追加する
+- 次に必要な型を `src/lib/callCenterData.ts` に追加し、更新処理はバックエンドの `CallCenterRepository` に追加する
+- call center データは Azure Table Storage の `CallCenterState` テーブルに永続化し、ACS 互換 webhook は `POST /api/acs/events` で受ける
+- AI 応答・要約・転送判断は `IAiCallResponseService` に集約し、`CallCenterService` から呼び出す
 
 ---
 
 ## テスト
 
-### バックエンド (xUnit + NSubstitute)
+### バックエンド
 
-```csharp
-public class UserServiceTests
-{
-    private readonly IUserRepository _repository;
-    private readonly UserService _service;
-
-    public UserServiceTests()
-    {
-        _repository = Substitute.For<IUserRepository>();
-        _service = new UserService(_repository);
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_ExistingUser_ReturnsDto()
-    {
-        // Arrange
-        var entity = CreateTestEntity("user1", "test@example.com", "Test User");
-        _repository.GetByIdAsync("user1").Returns(entity);
-
-        // Act
-        var result = await _service.GetByIdAsync("user1");
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal("user1", result.UserId);
-    }
-}
-```
-
-- テストは `tests/` に配置し、`Tests.csproj` に含める
+- テストは `tests/` に配置し、`dotnet test tests/Tests.csproj` で実行する
 - モックは NSubstitute を使用する
-- テスト名は日本語で記述する (例: `GetByIdAsync_ExistingUser_ReturnsDto`)
-- テストは `dotnet test tests/Tests.csproj` で実行する
 
-### フロントエンド (vitest + @testing-library/react)
+### フロントエンド
 
-```tsx
-import { render, screen } from '@testing-library/react'
-import { vi } from 'vitest'
-
-vi.mock('@/hooks/useAuth', () => ({
-  useAuth: vi.fn(),
-}))
-
-describe('SampleComponent', () => {
-  it('正常にレンダリングされる', () => {
-    render(<SampleComponent />)
-    expect(screen.getByText('テキスト')).toBeInTheDocument()
-  })
-})
-```
-
-- テストは `src/__tests__/` 配下に配置する (ディレクトリ構造は `src/` と対応させる)
-- テストは `cd src/WebApp/clientapp && npm run test` で実行する
+- テストは `src/__tests__/` 配下に配置する
 - テストの説明文は日本語で記述する
+- `AppShell` を使う画面のテストでは `useAuth` と `@/lib/alert` を必要に応じてモックする
+- テストは `cd src/WebApp/clientapp && npm run test` で実行する
 
 ---
 
 ## 開発コマンド
 
 ```bash
-# バックエンドビルド
-dotnet build TemplateApp.slnx
-
-# バックエンドテスト
-dotnet test tests/Tests.csproj
-
-# バックエンド起動
-cd src/WebApp && dotnet run
-
-# フロントエンドインストール
+# フロントエンド依存関係のインストール
 cd src/WebApp/clientapp && npm install
 
-# フロントエンド開発サーバー
+# バックエンドビルド
+cd /repo-root && dotnet build TemplateApp.slnx
+
+# バックエンドテスト
+cd /repo-root && dotnet test tests/Tests.csproj
+
+# フロントエンド起動
 cd src/WebApp/clientapp && npm run dev
 
 # フロントエンドビルド
@@ -330,14 +163,4 @@ cd src/WebApp/clientapp && npm run lint
 
 # フロントエンドテスト
 cd src/WebApp/clientapp && npm run test
-
-# フロントエンドテスト (カバレッジ)
-cd src/WebApp/clientapp && npm run test:coverage
 ```
-
----
-
-## UI テキスト・メッセージ
-
-- UI に表示するラベル・メッセージ・エラー文はすべて日本語で記述する
-- コードのコメントも日本語で記述してよい

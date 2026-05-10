@@ -7,18 +7,13 @@ import { alert } from '@/lib/alert'
 import { asApiResponse } from '@/lib/apiResponse'
 import { aspidaClientNoThrow } from '@/lib/aspida'
 import { notifyInitialPassword } from '@/lib/password'
+import { APP_HERO_DESCRIPTION, APP_HERO_TITLE, APP_NAME } from '@/lib/appConfig'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 const authApi = api(aspidaClientNoThrow).api.Auth
 
-/**
- * ログインページコンポーネント。
- * メールアドレスとパスワードによるログインフォームを表示する。
- * 開発環境ではテストログインユーザー一覧も表示する。
- * Azure Entra ID によるログインボタンも配置するが現在は無効。
- */
 export default function LoginPage() {
   const { login, testLogin, resetPasswordByCredentials } = useAuth()
   const [email, setEmail] = useState('')
@@ -29,7 +24,6 @@ export default function LoginPage() {
   useEffect(() => {
     let isMounted = true
 
-    /** テストログイン可能なユーザー一覧を API から取得する */
     const loadTestLoginUsers = async () => {
       const result = await authApi.test_users.get()
 
@@ -54,11 +48,6 @@ export default function LoginPage() {
     }
   }, [])
 
-  /**
-   * ログインフォームの送信ハンドラ。
-   * 入力されたメールアドレスとパスワードでログイン API を呼び出す。
-   * @param e - フォーム送信イベント
-   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (isSubmitting) return
@@ -74,11 +63,6 @@ export default function LoginPage() {
     }
   }
 
-  /**
-   * テストログインボタンのクリックハンドラ。
-   * 指定したユーザー ID でテストログイン API を呼び出す（開発環境専用）。
-   * @param userId - テストログインするユーザー ID
-   */
   const handleTestLogin = async (userId: string) => {
     if (isSubmitting) return
 
@@ -93,11 +77,6 @@ export default function LoginPage() {
     }
   }
 
-  /**
-   * パスワード初期化ボタンのクリックハンドラ。
-   * 入力されたメールアドレスと現在のパスワードでパスワードを初期化し、
-   * 初期パスワードをクリップボードへコピーする。
-   */
   const handleResetPassword = async () => {
     if (isSubmitting) return
 
@@ -120,99 +99,124 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>ログイン</CardTitle>
-          <CardDescription>メールアドレスとパスワードでログインしてください。</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                メールアドレス
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                パスワード
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'ログイン中...' : 'ログイン'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={isSubmitting}
-              onClick={() => void handleResetPassword()}
-            >
-              現在のパスワードで初期化
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              ログイン画面からの初期化では、メールアドレスと現在のパスワードの入力が必要です。
-            </p>
-          </form>
-
-          {testLoginUsers.length > 0 && (
-            <div className="mt-6 space-y-3">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+    <div className="grid min-h-screen bg-muted/30 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-md">
+          <Card>
+            <CardHeader>
+              <CardTitle>ログイン</CardTitle>
+              <CardDescription>メールアドレスとパスワードでログインしてください。</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    メールアドレス
+                  </label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    required
+                  />
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">テストログイン</span>
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium">
+                    パスワード
+                  </label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
                 </div>
-              </div>
-              <div className="space-y-2">
-                {testLoginUsers.map((user) => (
-                  <Button
-                    key={user.userId}
-                    type="button"
-                    variant="secondary"
-                    className="w-full justify-between"
-                    disabled={isSubmitting}
-                    onClick={() => void handleTestLogin(user.userId)}
-                  >
-                    <span>{user.userId}</span>
-                    <span className="text-xs text-muted-foreground">{user.roles.join(', ')}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting ? 'ログイン中...' : 'ログイン'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isSubmitting}
+                  onClick={() => void handleResetPassword()}
+                >
+                  現在のパスワードで初期化
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  ログイン画面からの初期化では、メールアドレスと現在のパスワードの入力が必要です。
+                </p>
+              </form>
 
-          <div className="mt-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+              {testLoginUsers.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">テストログイン</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {testLoginUsers.map((user) => (
+                      <Button
+                        key={user.userId}
+                        type="button"
+                        variant="secondary"
+                        className="w-full justify-between"
+                        disabled={isSubmitting}
+                        onClick={() => void handleTestLogin(user.userId)}
+                      >
+                        <span>{user.userId}</span>
+                        <span className="text-xs text-muted-foreground">{user.roles.join(', ')}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">または</span>
+                  </div>
+                </div>
+                <Button variant="outline" className="mt-4 w-full" disabled>
+                  Azure Entra ID でログイン
+                </Button>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">または</span>
-              </div>
-            </div>
-            <Button variant="outline" className="mt-4 w-full" disabled>
-              Azure Entra ID でログイン
-            </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="hidden border-l bg-background px-10 py-12 lg:flex lg:flex-col lg:justify-center">
+        <div className="max-w-xl space-y-8">
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-primary">{APP_NAME}</p>
+            <h1 className="text-4xl font-semibold leading-tight">{APP_HERO_TITLE}</h1>
+            <p className="text-base text-muted-foreground">{APP_HERO_DESCRIPTION}</p>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-muted/40 p-5">
+              <p className="text-sm text-muted-foreground">最低限の提供画面</p>
+              <p className="mt-2 font-medium">コール画面 / コール一覧 / 詳細 / FAQ / 転送先 / プロンプト / 設定</p>
+            </div>
+            <div className="rounded-xl border bg-muted/40 p-5">
+              <p className="text-sm text-muted-foreground">想定ユースケース</p>
+              <p className="mt-2 font-medium">着信受付、AI 応答切替、FAQ 回答、転送判断、要約確認</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
