@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { useCallCenterData } from '@/hooks/useCallCenterData'
+import { alert } from '@/lib/alert'
+import type { CallRecord } from '@/lib/callCenterData'
+import { applyCurrentCallAction, createTestIncomingCall } from '@/lib/callCenterManagement'
 import { cn } from '@/lib/utils'
 
 type ConsoleState = 'waiting' | 'incoming' | 'ai' | 'rejected'
@@ -16,15 +21,39 @@ const statusClasses: Record<ConsoleState, string> = {
 }
 
 const statusLabels: Record<ConsoleState, string> = {
-  waiting: '待受中',
+  waiting: '着信受付中',
   incoming: 'オペレーター選択待ち',
   ai: 'AI対応中',
   rejected: 'お断り案内済み',
 }
 
+function getConsoleState(call: CallRecord): ConsoleState {
+  if (call.status === '拒否') {
+    return 'rejected'
+  }
+
+  if (call.status === 'AI対応中') {
+    return 'ai'
+  }
+
+  if (call.status === '着信受付中') {
+    return 'waiting'
+  }
+
+  return 'incoming'
+}
+
 export default function CallConsolePage() {
-  const { data, isLoading } = useCallCenterData()
-  const [consoleState, setConsoleState] = useState<ConsoleState>('incoming')
+  const { data, isLoading, mutate } = useCallCenterData()
+  const [currentCall, setCurrentCall] = useState<CallRecord>()
+  const [callerNumber, setCallerNumber] = useState('03-4000-9999')
+  const [customerName, setCustomerName] = useState('テスト顧客')
+  const [requestedTopic, setRequestedTopic] = useState('サービス内容を確認したいです。')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    setCurrentCall(data?.incomingCall)
+  }, [data?.incomingCall])
 
   if (isLoading) {
     return (
@@ -41,7 +70,7 @@ export default function CallConsolePage() {
     )
   }
 
-  if (!data) {
+  if (!data || !currentCall) {
     return (
       <AppShell
         title="コール画面"
@@ -56,21 +85,73 @@ export default function CallConsolePage() {
     )
   }
 
-  const incomingCall = data.incomingCall
-
+  const consoleState = getConsoleState(currentCall)
   const currentMessage =
     consoleState === 'rejected'
       ? data.systemSettings.rejectMessage
       : consoleState === 'ai'
-        ? 'FAQ の一致候補を確認しながら自動応答を継続しています。必要に応じて転送先候補を提示します。'
-        : 'オペレーターによる応答待ちです。20 秒未応答で AI 応答へ切り替える設定です。'
+        ? currentCall.aiSummary
+        : consoleState === 'waiting'
+          ? 'オペレーターが通話を開始しています。'
+          : 'オペレーターによる応答待ちです。20 秒未応答で AI 応答へ切り替える設定です。'
+
+  const handleCallAction = async (action: 'receive' | 'ai' | 'reject') => {
+    if (isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await alert.withLoading(() => applyCurrentCallAction(action))
+      if (!result?.success || !result.data) {
+        await alert.error(result?.message ?? '通話状態の更新に失敗しました。')
+        return
+      }
+
+      setCurrentCall(result.data)
+      await mutate()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCreateTestCall = async (event: FormEvent) => {
+    event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await alert.withLoading(() =>
+        createTestIncomingCall({
+          callerNumber,
+          customerName,
+          customerType: 'テスト',
+          customerSummary: 'ブラウザから作成したテスト着信です。',
+          requestedTopic,
+        }),
+      )
+
+      if (!result?.success || !result.data) {
+        await alert.error(result?.message ?? 'テスト着信の作成に失敗しました。')
+        return
+      }
+
+      setCurrentCall(result.data)
+      await mutate()
+      await alert.success(result.message ?? 'テスト着信を作成しました。')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <AppShell
       title="コール画面"
       description="着信受付、AI 応答状態、リアルタイム文字起こしを 1 画面で確認できます。"
       actions={
-        <Link to={`/calls/${incomingCall.id}`} className={cn(buttonVariants({ variant: 'outline' }))}>
+        <Link to={`/calls/${currentCall.id}`} className={cn(buttonVariants({ variant: 'outline' }))}>
           対象通話の詳細へ
         </Link>
       }
@@ -90,34 +171,34 @@ export default function CallConsolePage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">発信元電話番号</p>
-                <p className="mt-1 text-lg font-semibold">{incomingCall.callerNumber}</p>
+                <p className="mt-1 text-lg font-semibold">{currentCall.callerNumber}</p>
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">着信時刻</p>
-                <p className="mt-1 text-lg font-semibold">{incomingCall.receivedAt}</p>
+                <p className="mt-1 text-lg font-semibold">{currentCall.receivedAt}</p>
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">顧客名</p>
-                <p className="mt-1 text-lg font-semibold">{incomingCall.customerName}</p>
+                <p className="mt-1 text-lg font-semibold">{currentCall.customerName}</p>
               </div>
               <div className="rounded-lg border p-4">
                 <p className="text-sm text-muted-foreground">顧客種別</p>
-                <p className="mt-1 text-lg font-semibold">{incomingCall.customerType}</p>
+                <p className="mt-1 text-lg font-semibold">{currentCall.customerType}</p>
               </div>
             </div>
 
             <div className="rounded-xl border bg-background p-4">
               <h3 className="font-medium">顧客情報要約</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{incomingCall.customerSummary}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{currentCall.customerSummary}</p>
             </div>
 
             <div className="rounded-xl border bg-background p-4">
               <div className="flex items-center justify-between gap-4">
                 <h3 className="font-medium">リアルタイム文字起こし</h3>
-                <span className="text-xs text-muted-foreground">遅延なく表示する想定のサンプル</span>
+                <span className="text-xs text-muted-foreground">ACS webhook またはテスト着信から更新</span>
               </div>
               <div className="mt-4 space-y-3">
-                {incomingCall.transcript.map((line) => (
+                {currentCall.transcript.map((line) => (
                   <div key={`${line.at}-${line.text}`} className="rounded-lg bg-muted/60 p-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-medium">{line.speaker}</span>
@@ -134,15 +215,50 @@ export default function CallConsolePage() {
             <div className="rounded-xl border bg-background p-4">
               <h3 className="font-medium">着信操作</h3>
               <div className="mt-4 grid gap-3">
-                <Button onClick={() => setConsoleState('waiting')}>受ける</Button>
-                <Button variant="secondary" onClick={() => setConsoleState('ai')}>
+                <Button disabled={isSubmitting} onClick={() => void handleCallAction('receive')}>
+                  受ける
+                </Button>
+                <Button disabled={isSubmitting} variant="secondary" onClick={() => void handleCallAction('ai')}>
                   AIへ回す
                 </Button>
-                <Button variant="destructive" onClick={() => setConsoleState('rejected')}>
+                <Button disabled={isSubmitting} variant="destructive" onClick={() => void handleCallAction('reject')}>
                   断る
                 </Button>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{currentMessage}</p>
+            </div>
+
+            <div className="rounded-xl border bg-background p-4">
+              <h3 className="font-medium">テスト着信作成</h3>
+              <form className="mt-4 space-y-3" onSubmit={(event) => void handleCreateTestCall(event)}>
+                <div className="space-y-2">
+                  <label htmlFor="callerNumber" className="text-sm font-medium">
+                    発信元電話番号
+                  </label>
+                  <Input id="callerNumber" value={callerNumber} onChange={(event) => setCallerNumber(event.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="customerName" className="text-sm font-medium">
+                    顧客名
+                  </label>
+                  <Input id="customerName" value={customerName} onChange={(event) => setCustomerName(event.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="requestedTopic" className="text-sm font-medium">
+                    問い合わせ内容
+                  </label>
+                  <textarea
+                    id="requestedTopic"
+                    className="min-h-28 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={requestedTopic}
+                    onChange={(event) => setRequestedTopic(event.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" disabled={isSubmitting} variant="outline">
+                  テスト着信を作成
+                </Button>
+              </form>
             </div>
 
             <div className="rounded-xl border bg-background p-4">

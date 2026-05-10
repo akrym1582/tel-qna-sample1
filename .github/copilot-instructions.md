@@ -11,7 +11,7 @@
 
 電話受付・AI 応答システムの初期フェーズ実装です。
 
-- フロントエンドは最低限必要な画面をモックデータで提供する
+- フロントエンドは最低限必要な画面を提供し、ブラウザからテスト着信を作成できる
 - バックエンドは既存の認証・ユーザー管理基盤を保持する
 - 将来的に ACS、FAQ ベクトル検索、転送判断 API へ拡張する前提で UI を整理する
 
@@ -96,6 +96,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - `src/components/AppShell.tsx` を画面共通レイアウトとして使う
 - `src/lib/callCenterData.ts` には画面で使う型定義と参照ヘルパーを配置する
 - 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
+- FAQ / 転送先 / システム設定だけでなく、現在着信の操作やテスト着信作成も call center API 経由で行う
 - `src/api/` 配下の aspida 生成物は手動編集しない
 - UI に表示するラベル・メッセージ・説明文はすべて日本語で記述する
 - `export default` で画面コンポーネントをエクスポートする
@@ -106,13 +107,14 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - 既存認証系 API は aspida 経由で利用する
 - 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` のレスポンスを利用する
 - FAQ / 転送先 / システム設定の変更は call center 用 API に送信する
+- テスト着信は `POST /api/call-center/test-calls`、着信操作は `PUT /api/call-center/current-call/actions/{action}` を使う
 - API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
 ### 画面追加時の方針
 
 - まず画面要件に沿った UI を追加する
-- 次に必要な型を `src/lib/callCenterData.ts` に追加し、固定データや更新処理はバックエンドの `CallCenterRepository` に追加する
-- 実データ化するときは、コントローラー・サービス・リポジトリの責務を維持したまま永続化実装へ置き換える
+- 次に必要な型を `src/lib/callCenterData.ts` に追加し、更新処理はバックエンドの `CallCenterRepository` に追加する
+- call center データは Azure Table Storage の `CallCenterState` テーブルに永続化し、ACS 互換 webhook は `POST /api/acs/events` で受ける
 
 ---
 

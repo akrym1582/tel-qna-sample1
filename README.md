@@ -1,6 +1,6 @@
 # 電話受付・AI応答システム
 
-Azure Communication Services を利用した電話受付・AI 応答システムの初期フェーズ用リポジトリです。現時点では React 19 + ASP.NET 10 テンプレートをベースに、最低限必要な画面をモックデータで確認できる状態にしています。
+Azure Communication Services を利用した電話受付・AI 応答システムの初期フェーズ用リポジトリです。React 19 + ASP.NET 10 テンプレートをベースに、Azure Table Storage へ保存される電話受付データと ACS 互換 webhook を使った着信取り込みまで確認できる状態にしています。
 
 > **ドキュメントメンテナンスルール**: 技術スタック・アーキテクチャ・画面構成・開発手順を変更した場合は、このファイル (`README.md`) と [`.github/copilot-instructions.md`](.github/copilot-instructions.md) の**両方**を必ず更新してください。
 
@@ -15,7 +15,7 @@ Azure Communication Services を利用した電話受付・AI 応答システム
 - システムプロンプト一覧 / 詳細画面
 - システム設定画面
 
-> 人間オペレーターのブラウザ通話機能や ACS 実接続は未実装です。初期フェーズでは AI による自動応答 UI、FAQ 参照、転送判断、通話履歴確認の画面プロトタイプを優先しています。
+> ブラウザ通話そのものは未実装ですが、`POST /api/acs/events` で ACS / Event Grid 互換イベントを受け取り、`POST /api/call-center/test-calls` でブラウザからテスト着信を作成できます。
 
 ## プロジェクト構成
 
@@ -53,16 +53,17 @@ TemplateApp.slnx
 - システムプロンプト
 - システム設定
 
-現時点ではバックエンドの `CallCenterRepository` がインメモリ状態として固定初期データを保持し、`GET /api/call-center/bootstrap` と FAQ / 転送先 / システム設定の更新 API を提供します。将来的にはこれらを API + Azure Storage / Search / OpenAI 連携へ置き換える想定です。
+現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ ベクトル検索や AI 判断ロジック本体は今後の拡張対象です。
 
 ## 技術スタック
 
 ### バックエンド
 - ASP.NET 10
 - Cookie 認証 + Azure Entra ID
-- Azure Table Storage（既存ユーザー管理）
-- 初期フェーズ向け CallCenter API (`GET /api/call-center/bootstrap`)
-- FAQ / 転送先 / システム設定の更新 API (`PUT /api/call-center/...`)
+- Azure Table Storage（ユーザー管理 + CallCenterState 永続化）
+- CallCenter API (`GET /api/call-center/bootstrap`, `PUT /api/call-center/...`)
+- テスト着信 / 通話状態更新 API (`POST /api/call-center/test-calls`, `PUT /api/call-center/current-call/actions/{action}`)
+- ACS / Event Grid 互換 webhook (`POST /api/acs/events`)
 - xUnit + NSubstitute
 
 ### フロントエンド
@@ -92,6 +93,11 @@ cd src/WebApp
 dotnet run
 ```
 
+### Azurite を使う場合
+```bash
+azurite --silent --location /tmp/azurite --debug /tmp/azurite/debug.log
+```
+
 ### フロントエンド起動
 ```bash
 cd src/WebApp/clientapp
@@ -111,9 +117,14 @@ npm run test
 npm run build
 ```
 
+## 動作確認用 API
+
+- `POST /api/call-center/test-calls`: 認証済み画面からテスト着信を作成
+- `PUT /api/call-center/current-call/actions/receive|ai|reject`: 現在着信の状態を更新
+- `POST /api/acs/events`: Event Grid 互換の配列 payload を受信して着信 / 接続 / 終話を反映
+
 ## 今後の実装候補
 
-- ACS 着信イベント連携
 - FAQ ベクトル検索 API
 - AI 応答と転送判断のサーバー実装
 - 録音 / 文字起こし / 要約の永続化

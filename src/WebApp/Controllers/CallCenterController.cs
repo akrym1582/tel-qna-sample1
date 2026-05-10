@@ -27,7 +27,6 @@ public class CallCenterController : ControllerBase
     /// <summary>
     /// 初期フェーズの画面表示に必要なデータ一式を取得する。
     /// </summary>
-    /// <returns>画面初期表示用のデータセット。</returns>
     [HttpGet("bootstrap")]
     public async Task<ActionResult<ApiResponseDto<CallCenterBootstrapDto>>> GetBootstrap()
     {
@@ -38,9 +37,6 @@ public class CallCenterController : ControllerBase
     /// <summary>
     /// FAQ を更新する。
     /// </summary>
-    /// <param name="faqId">対象 FAQ ID。</param>
-    /// <param name="request">更新内容。</param>
-    /// <returns>更新後の FAQ。見つからない場合は 404 を返す。</returns>
     [HttpPut("faqs/{faqId}")]
     public async Task<ActionResult<ApiResponseDto<FaqItemDto>>> UpdateFaq(
         string faqId,
@@ -58,9 +54,6 @@ public class CallCenterController : ControllerBase
     /// <summary>
     /// 転送先を更新する。
     /// </summary>
-    /// <param name="destinationId">対象転送先 ID。</param>
-    /// <param name="request">更新内容。</param>
-    /// <returns>更新後の転送先。見つからない場合は 404 を返す。</returns>
     [HttpPut("transfer-destinations/{destinationId}")]
     public async Task<ActionResult<ApiResponseDto<TransferDestinationDto>>> UpdateTransferDestination(
         string destinationId,
@@ -78,13 +71,39 @@ public class CallCenterController : ControllerBase
     /// <summary>
     /// システム設定を更新する。
     /// </summary>
-    /// <param name="request">更新内容。</param>
-    /// <returns>更新後のシステム設定。</returns>
     [HttpPut("system-settings")]
     public async Task<ActionResult<ApiResponseDto<SystemSettingsDto>>> UpdateSystemSettings(
         [FromBody] UpdateSystemSettingsRequestDto request)
     {
         var systemSettings = await _callCenterService.UpdateSystemSettingsAsync(request);
         return Ok(new ApiResponseDto<SystemSettingsDto>(true, systemSettings, "システム設定を更新しました。"));
+    }
+
+    /// <summary>
+    /// テスト着信を作成する。
+    /// </summary>
+    [HttpPost("test-calls")]
+    public async Task<ActionResult<ApiResponseDto<CallRecordDto>>> CreateTestIncomingCall(
+        [FromBody] CreateTestIncomingCallRequestDto request)
+    {
+        var call = await _callCenterService.CreateIncomingCallAsync(request, "テスト着信");
+        return Ok(new ApiResponseDto<CallRecordDto>(true, call, "テスト着信を作成しました。"));
+    }
+
+    /// <summary>
+    /// 現在着信に操作を反映する。
+    /// </summary>
+    [HttpPut("current-call/actions/{action}")]
+    public async Task<ActionResult<ApiResponseDto<CallRecordDto>>> ApplyCurrentCallAction(string action)
+    {
+        try
+        {
+            var call = await _callCenterService.ApplyCurrentCallActionAsync(action);
+            return Ok(new ApiResponseDto<CallRecordDto>(true, call, "通話状態を更新しました。"));
+        }
+        catch (ArgumentException)
+        {
+            return BadRequest(new ApiResponseDto(false, "未対応の通話操作です。"));
+        }
     }
 }

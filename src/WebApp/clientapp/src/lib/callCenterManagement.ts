@@ -1,6 +1,6 @@
 import type { ApiResponse } from '@/lib/apiResponse'
 import { apiFetch } from '@/lib/aspida'
-import type { FaqItem, SystemSettings, TransferDestination } from '@/lib/callCenterData'
+import type { CallRecord, FaqItem, SystemSettings, TransferDestination } from '@/lib/callCenterData'
 
 export interface UpdateFaqRequest {
   question: string
@@ -33,27 +33,43 @@ export interface UpdateSystemSettingsRequest {
   operatorAssignmentRule: string
 }
 
-async function putJson<T>(path: string, body: unknown): Promise<ApiResponse<T>> {
+export interface CreateTestIncomingCallRequest {
+  callerNumber: string
+  customerName: string
+  customerType: string
+  customerSummary: string
+  requestedTopic: string
+}
+
+async function requestJson<T>(path: string, method: 'POST' | 'PUT', body?: unknown): Promise<ApiResponse<T>> {
   const response = await apiFetch(path, {
-    method: 'PUT',
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: body ? JSON.stringify(body) : undefined,
   })
 
   return (await response.json()) as ApiResponse<T>
 }
 
 export function updateFaq(faqId: string, request: UpdateFaqRequest) {
-  return putJson<FaqItem>(`/api/call-center/faqs/${faqId}`, request)
+  return requestJson<FaqItem>(`/api/call-center/faqs/${faqId}`, 'PUT', request)
 }
 
 export function updateTransferDestination(
   destinationId: string,
   request: UpdateTransferDestinationRequest,
 ) {
-  return putJson<TransferDestination>(`/api/call-center/transfer-destinations/${destinationId}`, request)
+  return requestJson<TransferDestination>(`/api/call-center/transfer-destinations/${destinationId}`, 'PUT', request)
 }
 
 export function updateSystemSettings(request: UpdateSystemSettingsRequest) {
-  return putJson<SystemSettings>('/api/call-center/system-settings', request)
+  return requestJson<SystemSettings>('/api/call-center/system-settings', 'PUT', request)
+}
+
+export function createTestIncomingCall(request: CreateTestIncomingCallRequest) {
+  return requestJson<CallRecord>('/api/call-center/test-calls', 'POST', request)
+}
+
+export function applyCurrentCallAction(action: 'receive' | 'ai' | 'reject') {
+  return requestJson<CallRecord>(`/api/call-center/current-call/actions/${action}`, 'PUT')
 }

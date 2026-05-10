@@ -1,65 +1,55 @@
+using System.Text.Json;
+using Azure;
+using Azure.Data.Tables;
 using Shared.Dto;
 
 namespace Shared.Repository;
 
 /// <summary>
-/// 初期フェーズ向けの固定データを返す電話受付リポジトリ実装。
+/// Azure Table Storage に電話受付データを永続化するリポジトリ実装。
 /// </summary>
 public class CallCenterRepository : ICallCenterRepository
 {
+    private const string PartitionKey = "CALL_CENTER";
+    private const string RowKey = "STATE";
+    private const string DataPropertyName = "Data";
     private const string UpdatedBy = "管理者";
-    private readonly object _syncRoot = new();
-    private CurrentOperatorDto _currentOperator = new(
-        Id: "operator-01",
-        Name: "田中 花子",
-        Role: "オペレーター",
-        Team: "代表電話受付");
+    private readonly JsonSerializerOptions _serializerOptions = new(JsonSerializerDefaults.Web);
+    private readonly SemaphoreSlim _stateLock = new(1, 1);
+    private readonly TableClient _tableClient;
 
-    private SystemSettingsDto _systemSettings = new(
-        BusinessHours: "平日 09:00〜18:00",
-        AfterHoursMessage: "営業時間外のため、本日は応答できません。明日の営業時間内におかけ直しください。",
-        RejectMessage: "ただいま担当者が応答できないため、お電話を終了いたします。",
-        AiEnabled: true,
-        TestLoginEnabled: true,
-        FaqScoreThreshold: "0.82",
-        OperatorAssignmentRule: "先着応答 + 20秒未応答で AI へ自動切替");
-
-    private CallRecordDto _incomingCall = CreateIncomingCall();
-    private List<CallRecordDto> _callRecords = CreateCallRecords();
-    private List<FaqItemDto> _faqItems = CreateFaqItems();
-    private List<TransferDestinationDto> _transferDestinations = CreateTransferDestinations();
-    private List<SystemPromptDto> _systemPrompts = CreateSystemPrompts();
-    private List<DashboardStatDto> _dashboardStats = CreateDashboardStats();
-
-    /// <inheritdoc/>
-    public Task<CallCenterBootstrapDto> GetBootstrapAsync()
+    /// <summary>
+    /// <see cref="CallCenterRepository"/> の新しいインスタンスを初期化する。
+    /// </summary>
+    /// <param name="tableServiceClient">Azure Table Storage のサービスクライアント。</param>
+    public CallCenterRepository(TableServiceClient tableServiceClient)
     {
-        lock (_syncRoot)
-        {
-            return Task.FromResult(new CallCenterBootstrapDto(
-                _currentOperator,
-                _systemSettings,
-                _incomingCall,
-                _callRecords.ToList(),
-                _faqItems.ToList(),
-                _transferDestinations.ToList(),
-                _systemPrompts.ToList(),
-                _dashboardStats.ToList()));
-        }
+        _tableClient = tableServiceClient.GetTableClient("CallCenterState");
+        _tableClient.CreateIfNotExists();
     }
 
     /// <inheritdoc/>
-    public Task<FaqItemDto?> UpdateFaqAsync(string faqId, UpdateFaqRequestDto request)
+    public async Task<CallCenterBootstrapDto> GetBootstrapAsync()
     {
-        lock (_syncRoot)
+        var state = await LoadStateAsync();
+        return RecalculateDashboardStats(state);
+    }
+
+    /// <inheritdoc/>
+    public async Task<FaqItemDto?> UpdateFaqAsync(string faqId, UpdateFaqRequestDto request)
+    {
+        await _stateLock.WaitAsync();
+        try
         {
-            var index = _faqItems.FindIndex(faq => string.Equals(faq.Id, faqId, StringComparison.Ordinal));
+            var state = await LoadStateAsync();
+            var faqItems = state.FaqItems.ToList();
+            var index = faqItems.FindIndex(faq => string.Equals(faq.Id, faqId, StringComparison.Ordinal));
             if (index < 0)
             {
-                return Task.FromResult<FaqItemDto?>(null);
+                return null;
             }
 
-            var updatedFaq = _faqItems[index] with
+            var updatedFaq = faqItems[index] with
             {
                 Question = request.Question,
                 Answer = request.Answer,
@@ -71,26 +61,33 @@ public class CallCenterRepository : ICallCenterRepository
                 UpdatedBy = UpdatedBy,
             };
 
-            _faqItems[index] = updatedFaq;
-            return Task.FromResult<FaqItemDto?>(updatedFaq);
+            faqItems[index] = updatedFaq;
+            await SaveStateAsync(state with { FaqItems = faqItems });
+            return updatedFaq;
+        }
+        finally
+        {
+            _stateLock.Release();
         }
     }
 
     /// <inheritdoc/>
-    public Task<TransferDestinationDto?> UpdateTransferDestinationAsync(
+    public async Task<TransferDestinationDto?> UpdateTransferDestinationAsync(
         string destinationId,
         UpdateTransferDestinationRequestDto request)
     {
-        lock (_syncRoot)
+        await _stateLock.WaitAsync();
+        try
         {
-            var index = _transferDestinations.FindIndex(destination =>
-                string.Equals(destination.Id, destinationId, StringComparison.Ordinal));
+            var state = await LoadStateAsync();
+            var destinations = state.TransferDestinations.ToList();
+            var index = destinations.FindIndex(destination => string.Equals(destination.Id, destinationId, StringComparison.Ordinal));
             if (index < 0)
             {
-                return Task.FromResult<TransferDestinationDto?>(null);
+                return null;
             }
 
-            var updatedDestination = _transferDestinations[index] with
+            var updatedDestination = destinations[index] with
             {
                 Name = request.Name,
                 Type = request.Type,
@@ -103,17 +100,24 @@ public class CallCenterRepository : ICallCenterRepository
                 Enabled = request.Enabled,
             };
 
-            _transferDestinations[index] = updatedDestination;
-            return Task.FromResult<TransferDestinationDto?>(updatedDestination);
+            destinations[index] = updatedDestination;
+            await SaveStateAsync(state with { TransferDestinations = destinations });
+            return updatedDestination;
+        }
+        finally
+        {
+            _stateLock.Release();
         }
     }
 
     /// <inheritdoc/>
-    public Task<SystemSettingsDto> UpdateSystemSettingsAsync(UpdateSystemSettingsRequestDto request)
+    public async Task<SystemSettingsDto> UpdateSystemSettingsAsync(UpdateSystemSettingsRequestDto request)
     {
-        lock (_syncRoot)
+        await _stateLock.WaitAsync();
+        try
         {
-            _systemSettings = new SystemSettingsDto(
+            var state = await LoadStateAsync();
+            var updatedSettings = new SystemSettingsDto(
                 request.BusinessHours,
                 request.AfterHoursMessage,
                 request.RejectMessage,
@@ -122,12 +126,254 @@ public class CallCenterRepository : ICallCenterRepository
                 request.FaqScoreThreshold,
                 request.OperatorAssignmentRule);
 
-            return Task.FromResult(_systemSettings);
+            await SaveStateAsync(state with { SystemSettings = updatedSettings });
+            return updatedSettings;
         }
+        finally
+        {
+            _stateLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> CreateIncomingCallAsync(CreateTestIncomingCallRequestDto request, string source)
+    {
+        await _stateLock.WaitAsync();
+        try
+        {
+            var state = await LoadStateAsync();
+            var archivedRecords = ArchiveCurrentCall(state.IncomingCall, state.CallRecords);
+            var receivedAt = GetCurrentTimestamp();
+            var normalizedTopic = string.IsNullOrWhiteSpace(request.RequestedTopic)
+                ? "ご相談があります。"
+                : request.RequestedTopic;
+            var customerName = string.IsNullOrWhiteSpace(request.CustomerName)
+                ? request.CallerNumber
+                : request.CustomerName;
+            var customerSummary = string.IsNullOrWhiteSpace(request.CustomerSummary)
+                ? "新規着信 / テスト受電"
+                : request.CustomerSummary;
+            var currentCall = new CallRecordDto(
+                Id: $"CALL-{DateTime.UtcNow:yyyyMMdd-HHmmss}",
+                CallerNumber: request.CallerNumber,
+                ReceivedAt: receivedAt,
+                EndedAt: string.Empty,
+                Status: "オペレーター選択待ち",
+                ResponseMode: "AI",
+                OperatorName: "代表電話受付",
+                CustomerId: BuildCustomerId(request.CallerNumber),
+                CustomerName: customerName,
+                CustomerType: string.IsNullOrWhiteSpace(request.CustomerType) ? "不明" : request.CustomerType,
+                CustomerSummary: customerSummary,
+                AiHandled: false,
+                TransferRequired: false,
+                TransferDestinationId: null,
+                TransferDestinationName: null,
+                TransferReason: null,
+                AiSummary: "着信を受け付けました。オペレーターまたは AI が応答できます。",
+                RecordingLocation: "未保存",
+                Transcript:
+                [
+                    new CallTranscriptLineDto("顧客", normalizedTopic, GetCurrentTimeOnly()),
+                ],
+                Events:
+                [
+                    new CallEventDto(GetCurrentTimeOnly(), "着信受付", source, $"{request.CallerNumber} からの着信を取り込みました。"),
+                ],
+                TransferHistory: []);
+
+            await SaveStateAsync(state with
+            {
+                IncomingCall = currentCall,
+                CallRecords = archivedRecords,
+            });
+            return currentCall;
+        }
+        finally
+        {
+            _stateLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> ApplyCurrentCallActionAsync(string action)
+    {
+        CallEventUpdateRequestDto request = action.ToLowerInvariant() switch
+        {
+            "receive" => new CallEventUpdateRequestDto(
+                "オペレーター応答",
+                "オペレーター",
+                "オペレーターが受電しました。",
+                "着信受付中",
+                "人間",
+                "オペレーターが通話を開始しました。",
+                null,
+                null),
+            "ai" => new CallEventUpdateRequestDto(
+                "AI応答開始",
+                "AI",
+                "AI 応答へ切り替えました。",
+                "AI対応中",
+                "AI",
+                "FAQ の一致候補を確認しながら自動応答を継続しています。",
+                null,
+                null),
+            "reject" => new CallEventUpdateRequestDto(
+                "受付終了",
+                "オペレーター",
+                "お断りメッセージを案内して通話を終了しました。",
+                "拒否",
+                "人間",
+                "お断りメッセージを案内して通話を終了しました。",
+                null,
+                GetCurrentTimestamp()),
+            _ => throw new ArgumentException("未対応の通話操作です。", nameof(action)),
+        };
+
+        return await ApplyCurrentCallEventAsync(request);
+    }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> ApplyCurrentCallEventAsync(CallEventUpdateRequestDto request)
+    {
+        await _stateLock.WaitAsync();
+        try
+        {
+            var state = await LoadStateAsync();
+            var currentCall = state.IncomingCall;
+            var updatedEvents = currentCall.Events
+                .Concat([new CallEventDto(GetCurrentTimeOnly(), request.EventType, request.Actor, request.Detail)])
+                .ToList();
+            var updatedCall = currentCall with
+            {
+                Status = request.Status ?? currentCall.Status,
+                ResponseMode = request.ResponseMode ?? currentCall.ResponseMode,
+                AiSummary = request.AiSummary ?? currentCall.AiSummary,
+                RecordingLocation = request.RecordingLocation ?? currentCall.RecordingLocation,
+                EndedAt = request.EndedAt ?? currentCall.EndedAt,
+                Events = updatedEvents,
+                AiHandled = request.ResponseMode is "AI" || currentCall.AiHandled,
+            };
+
+            await SaveStateAsync(state with { IncomingCall = updatedCall });
+            return updatedCall;
+        }
+        finally
+        {
+            _stateLock.Release();
+        }
+    }
+
+    private async Task<CallCenterBootstrapDto> LoadStateAsync()
+    {
+        try
+        {
+            var response = await _tableClient.GetEntityAsync<TableEntity>(PartitionKey, RowKey);
+            var json = response.Value.GetString(DataPropertyName);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                var emptyState = CreateDefaultState();
+                await SaveStateAsync(emptyState);
+                return emptyState;
+            }
+
+            var state = JsonSerializer.Deserialize<CallCenterBootstrapDto>(json, _serializerOptions);
+            if (state is not null)
+            {
+                return state;
+            }
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+        }
+
+        var defaultState = CreateDefaultState();
+        await SaveStateAsync(defaultState);
+        return defaultState;
+    }
+
+    private async Task SaveStateAsync(CallCenterBootstrapDto state)
+    {
+        var normalizedState = RecalculateDashboardStats(state);
+        var entity = new TableEntity(PartitionKey, RowKey)
+        {
+            [DataPropertyName] = JsonSerializer.Serialize(normalizedState, _serializerOptions),
+        };
+        await _tableClient.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+    }
+
+    private static CallCenterBootstrapDto RecalculateDashboardStats(CallCenterBootstrapDto state)
+    {
+        var allCalls = new[] { state.IncomingCall }.Concat(state.CallRecords).ToList();
+        var openCallCount = allCalls.Count(call => string.IsNullOrWhiteSpace(call.EndedAt));
+        var transferCount = allCalls.Count(call => call.Status == "転送中");
+        var aiCount = allCalls.Count(call => call.AiHandled);
+        var todayPrefix = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        var todayCount = allCalls.Count(call => call.ReceivedAt.StartsWith(todayPrefix, StringComparison.Ordinal));
+
+        return state with
+        {
+            DashboardStats =
+            [
+                new DashboardStatDto("本日の着信件数", $"{todayCount}件"),
+                new DashboardStatDto("AI 対応件数", $"{aiCount}件"),
+                new DashboardStatDto("転送待ち件数", $"{transferCount}件"),
+                new DashboardStatDto("未対応件数", $"{openCallCount}件"),
+            ],
+        };
+    }
+
+    private static IReadOnlyList<CallRecordDto> ArchiveCurrentCall(
+        CallRecordDto currentCall,
+        IReadOnlyList<CallRecordDto> existingCallRecords)
+    {
+        if (existingCallRecords.Any(call => call.Id == currentCall.Id))
+        {
+            return existingCallRecords;
+        }
+
+        var archivedCall = currentCall with
+        {
+            EndedAt = string.IsNullOrWhiteSpace(currentCall.EndedAt) ? GetCurrentTimestamp() : currentCall.EndedAt,
+            Status = currentCall.Status is "拒否" or "業務時間外終了" ? currentCall.Status : "通話終了",
+        };
+
+        return new[] { archivedCall }.Concat(existingCallRecords).ToList();
+    }
+
+    private static string BuildCustomerId(string callerNumber)
+    {
+        var digits = new string(callerNumber.Where(char.IsDigit).ToArray());
+        return digits.Length >= 4 ? $"CUS-{digits[^4..]}" : "CUS-NEW";
     }
 
     private static string GetCurrentTimestamp() =>
         DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
+
+    private static string GetCurrentTimeOnly() =>
+        DateTime.UtcNow.ToString("HH:mm:ss");
+
+    private static CallCenterBootstrapDto CreateDefaultState() =>
+        new(
+            new CurrentOperatorDto(
+                Id: "operator-01",
+                Name: "田中 花子",
+                Role: "オペレーター",
+                Team: "代表電話受付"),
+            new SystemSettingsDto(
+                BusinessHours: "平日 09:00〜18:00",
+                AfterHoursMessage: "営業時間外のため、本日は応答できません。明日の営業時間内におかけ直しください。",
+                RejectMessage: "ただいま担当者が応答できないため、お電話を終了いたします。",
+                AiEnabled: true,
+                TestLoginEnabled: true,
+                FaqScoreThreshold: "0.82",
+                OperatorAssignmentRule: "先着応答 + 20秒未応答で AI へ自動切替"),
+            CreateIncomingCall(),
+            CreateCallRecords(),
+            CreateFaqItems(),
+            CreateTransferDestinations(),
+            CreateSystemPrompts(),
+            []);
 
     private static CallRecordDto CreateIncomingCall() =>
         new(
@@ -162,7 +408,7 @@ public class CallCenterRepository : ICallCenterRepository
             ],
             TransferHistory: []);
 
-    private static List<CallRecordDto> CreateCallRecords() =>
+    private static IReadOnlyList<CallRecordDto> CreateCallRecords() =>
     [
         new CallRecordDto(
             Id: "CALL-20260510-001",
@@ -264,7 +510,7 @@ public class CallCenterRepository : ICallCenterRepository
             TransferHistory: []),
     ];
 
-    private static List<FaqItemDto> CreateFaqItems() =>
+    private static IReadOnlyList<FaqItemDto> CreateFaqItems() =>
     [
         new FaqItemDto(
             Id: "FAQ-001",
@@ -298,7 +544,7 @@ public class CallCenterRepository : ICallCenterRepository
             ScoreHint: "0.80"),
     ];
 
-    private static List<TransferDestinationDto> CreateTransferDestinations() =>
+    private static IReadOnlyList<TransferDestinationDto> CreateTransferDestinations() =>
     [
         new TransferDestinationDto(
             Id: "TR-001",
@@ -335,7 +581,7 @@ public class CallCenterRepository : ICallCenterRepository
             Enabled: true),
     ];
 
-    private static List<SystemPromptDto> CreateSystemPrompts() =>
+    private static IReadOnlyList<SystemPromptDto> CreateSystemPrompts() =>
     [
         new SystemPromptDto(
             Id: "PROMPT-001",
@@ -364,13 +610,5 @@ public class CallCenterRepository : ICallCenterRepository
             Enabled: false,
             UpdatedAt: "2026-04-28 09:05",
             UpdatedBy: "スーパーバイザー"),
-    ];
-
-    private static List<DashboardStatDto> CreateDashboardStats() =>
-    [
-        new DashboardStatDto("本日の着信件数", "18件"),
-        new DashboardStatDto("AI 対応件数", "11件"),
-        new DashboardStatDto("転送待ち件数", "2件"),
-        new DashboardStatDto("未対応件数", "1件"),
     ];
 }

@@ -75,4 +75,41 @@ public class CallCenterService : ICallCenterService
 
         return await _repository.UpdateSystemSettingsAsync(normalizedRequest);
     }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> CreateIncomingCallAsync(CreateTestIncomingCallRequestDto request, string source)
+    {
+        var normalizedRequest = request with
+        {
+            CallerNumber = request.CallerNumber.Trim(),
+            CustomerName = request.CustomerName.Trim(),
+            CustomerType = request.CustomerType.Trim(),
+            CustomerSummary = request.CustomerSummary.Trim(),
+            RequestedTopic = request.RequestedTopic.Trim(),
+        };
+
+        return await _repository.CreateIncomingCallAsync(normalizedRequest, source.Trim());
+    }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> ApplyCurrentCallActionAsync(string action) =>
+        await _repository.ApplyCurrentCallActionAsync(action.Trim());
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> ApplyCurrentCallEventAsync(CallEventUpdateRequestDto request)
+    {
+        var normalizedRequest = request with
+        {
+            EventType = request.EventType.Trim(),
+            Actor = request.Actor.Trim(),
+            Detail = request.Detail.Trim(),
+            Status = request.Status?.Trim(),
+            ResponseMode = request.ResponseMode?.Trim(),
+            AiSummary = request.AiSummary?.Trim(),
+            RecordingLocation = request.RecordingLocation?.Trim(),
+            EndedAt = request.EndedAt?.Trim(),
+        };
+
+        return await _repository.ApplyCurrentCallEventAsync(normalizedRequest);
+    }
 }

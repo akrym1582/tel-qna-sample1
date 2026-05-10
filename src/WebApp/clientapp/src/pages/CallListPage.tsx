@@ -12,14 +12,14 @@ export default function CallListPage() {
   const [modeFilter, setModeFilter] = useState('all')
 
   const filteredCalls = useMemo(() => {
-    const callRecords = data?.callRecords ?? []
+    const callRecords = data ? [data.incomingCall, ...data.callRecords] : []
 
     return callRecords.filter((callRecord) => {
       const statusMatched = statusFilter === 'all' || callRecord.status === statusFilter
       const modeMatched = modeFilter === 'all' || callRecord.responseMode === modeFilter
       return statusMatched && modeMatched
     })
-  }, [data?.callRecords, modeFilter, statusFilter])
+  }, [data, modeFilter, statusFilter])
 
   return (
     <AppShell
@@ -48,8 +48,12 @@ export default function CallListPage() {
                 onChange={(event) => setStatusFilter(event.target.value)}
               >
                 <option value="all">すべて</option>
+                <option value="オペレーター選択待ち">オペレーター選択待ち</option>
+                <option value="着信受付中">着信受付中</option>
+                <option value="AI対応中">AI対応中</option>
                 <option value="転送中">転送中</option>
                 <option value="通話終了">通話終了</option>
+                <option value="拒否">拒否</option>
                 <option value="業務時間外終了">業務時間外終了</option>
               </select>
             </div>
