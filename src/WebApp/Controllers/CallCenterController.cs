@@ -106,4 +106,25 @@ public class CallCenterController : ControllerBase
             return BadRequest(new ApiResponseDto(false, "未対応の通話操作です。"));
         }
     }
+
+    /// <summary>
+    /// 現在着信の文字起こしに発話を追加する。
+    /// </summary>
+    [HttpPost("current-call/transcript")]
+    public async Task<ActionResult<ApiResponseDto<CallRecordDto>>> AppendCurrentCallTranscript(
+        [FromBody] AppendTranscriptLineRequestDto request)
+    {
+        var call = await _callCenterService.AppendCurrentCallTranscriptAsync(request);
+        return Ok(new ApiResponseDto<CallRecordDto>(true, call, "文字起こしを更新しました。"));
+    }
+
+    /// <summary>
+    /// 現在着信に対する AI 応答を生成する。
+    /// </summary>
+    [HttpPost("current-call/ai-response")]
+    public async Task<ActionResult<ApiResponseDto<CallRecordDto>>> GenerateAiResponse()
+    {
+        var call = await _callCenterService.GenerateAiResponseAsync();
+        return Ok(new ApiResponseDto<CallRecordDto>(true, call, "AI 応答を生成しました。"));
+    }
 }

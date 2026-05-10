@@ -41,6 +41,11 @@ export interface CreateTestIncomingCallRequest {
   requestedTopic: string
 }
 
+export interface AppendCurrentCallTranscriptRequest {
+  speaker: '顧客' | 'オペレーター'
+  text: string
+}
+
 async function requestJson<T>(path: string, method: 'POST' | 'PUT', body?: unknown): Promise<ApiResponse<T>> {
   const response = await apiFetch(path, {
     method,
@@ -72,4 +77,12 @@ export function createTestIncomingCall(request: CreateTestIncomingCallRequest) {
 
 export function applyCurrentCallAction(action: 'receive' | 'ai' | 'reject') {
   return requestJson<CallRecord>(`/api/call-center/current-call/actions/${action}`, 'PUT')
+}
+
+export function appendCurrentCallTranscript(request: AppendCurrentCallTranscriptRequest) {
+  return requestJson<CallRecord>('/api/call-center/current-call/transcript', 'POST', request)
+}
+
+export function generateAiResponse() {
+  return requestJson<CallRecord>('/api/call-center/current-call/ai-response', 'POST')
 }

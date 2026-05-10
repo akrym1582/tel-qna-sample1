@@ -8,7 +8,12 @@ import { Input } from '@/components/ui/input'
 import { useCallCenterData } from '@/hooks/useCallCenterData'
 import { alert } from '@/lib/alert'
 import type { CallRecord } from '@/lib/callCenterData'
-import { applyCurrentCallAction, createTestIncomingCall } from '@/lib/callCenterManagement'
+import {
+  appendCurrentCallTranscript,
+  applyCurrentCallAction,
+  createTestIncomingCall,
+  generateAiResponse,
+} from '@/lib/callCenterManagement'
 import { cn } from '@/lib/utils'
 
 type ConsoleState = 'waiting' | 'incoming' | 'ai' | 'rejected'
@@ -49,6 +54,7 @@ export default function CallConsolePage() {
   const [callerNumber, setCallerNumber] = useState('03-4000-9999')
   const [customerName, setCustomerName] = useState('テスト顧客')
   const [requestedTopic, setRequestedTopic] = useState('サービス内容を確認したいです。')
+  const [customerUtterance, setCustomerUtterance] = useState('保守担当へつないでください。')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -146,6 +152,56 @@ export default function CallConsolePage() {
     }
   }
 
+  const handleAppendTranscript = async (event: FormEvent) => {
+    event.preventDefault()
+    if (isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await alert.withLoading(() =>
+        appendCurrentCallTranscript({
+          speaker: '顧客',
+          text: customerUtterance,
+        }),
+      )
+
+      if (!result?.success || !result.data) {
+        await alert.error(result?.message ?? '文字起こしの更新に失敗しました。')
+        return
+      }
+
+      setCurrentCall(result.data)
+      setCustomerUtterance('')
+      await mutate()
+      await alert.success(result.message ?? '文字起こしを更新しました。')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleGenerateAiResponse = async () => {
+    if (isSubmitting) {
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const result = await alert.withLoading(() => generateAiResponse())
+      if (!result?.success || !result.data) {
+        await alert.error(result?.message ?? 'AI 応答の生成に失敗しました。')
+        return
+      }
+
+      setCurrentCall(result.data)
+      await mutate()
+      await alert.success(result.message ?? 'AI 応答を生成しました。')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <AppShell
       title="コール画面"
@@ -195,7 +251,7 @@ export default function CallConsolePage() {
             <div className="rounded-xl border bg-background p-4">
               <div className="flex items-center justify-between gap-4">
                 <h3 className="font-medium">リアルタイム文字起こし</h3>
-                <span className="text-xs text-muted-foreground">ACS webhook またはテスト着信から更新</span>
+                <span className="text-xs text-muted-foreground">ACS webhook・手動追記・AI 応答で更新</span>
               </div>
               <div className="mt-4 space-y-3">
                 {currentCall.transcript.map((line) => (
@@ -208,6 +264,32 @@ export default function CallConsolePage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="rounded-xl border bg-background p-4">
+              <h3 className="font-medium">会話シミュレーション</h3>
+              <form className="mt-4 space-y-3" onSubmit={(event) => void handleAppendTranscript(event)}>
+                <div className="space-y-2">
+                  <label htmlFor="customerUtterance" className="text-sm font-medium">
+                    顧客の追加発話
+                  </label>
+                  <textarea
+                    id="customerUtterance"
+                    className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={customerUtterance}
+                    onChange={(event) => setCustomerUtterance(event.target.value)}
+                    required
+                  />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button type="submit" disabled={isSubmitting} variant="outline">
+                    文字起こしに追加
+                  </Button>
+                  <Button type="button" disabled={isSubmitting} variant="secondary" onClick={() => void handleGenerateAiResponse()}>
+                    AI応答を生成
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -226,6 +308,22 @@ export default function CallConsolePage() {
                 </Button>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">{currentMessage}</p>
+            </div>
+
+            <div className="rounded-xl border bg-background p-4">
+              <h3 className="font-medium">AI 要約と録音アーカイブ</h3>
+              <div className="mt-4 space-y-3 text-sm">
+                <p className="text-muted-foreground">{currentCall.aiSummary}</p>
+                <p>
+                  <span className="font-medium">転送先:</span> {currentCall.transferDestinationName ?? 'なし'}
+                </p>
+                <p>
+                  <span className="font-medium">転送理由:</span> {currentCall.transferReason ?? 'なし'}
+                </p>
+                <p className="break-all">
+                  <span className="font-medium">録音アーカイブ:</span> {currentCall.recordingLocation}
+                </p>
+              </div>
             </div>
 
             <div className="rounded-xl border bg-background p-4">

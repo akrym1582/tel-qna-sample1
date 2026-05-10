@@ -97,6 +97,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - `src/lib/callCenterData.ts` には画面で使う型定義と参照ヘルパーを配置する
 - 初期フェーズの画面データは `GET /api/call-center/bootstrap` から取得する
 - FAQ / 転送先 / システム設定だけでなく、現在着信の操作やテスト着信作成も call center API 経由で行う
+- 文字起こし追加は `POST /api/call-center/current-call/transcript`、AI 応答生成は `POST /api/call-center/current-call/ai-response` を使う
 - `src/api/` 配下の aspida 生成物は手動編集しない
 - UI に表示するラベル・メッセージ・説明文はすべて日本語で記述する
 - `export default` で画面コンポーネントをエクスポートする
@@ -108,6 +109,8 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - 初期フェーズの電話受付系 UI は `/api/call-center/bootstrap` のレスポンスを利用する
 - FAQ / 転送先 / システム設定の変更は call center 用 API に送信する
 - テスト着信は `POST /api/call-center/test-calls`、着信操作は `PUT /api/call-center/current-call/actions/{action}` を使う
+- AI 応答は Azure AI Foundry `gpt-realtime-2` を優先利用し、未設定時はサンプル応答へフォールバックする
+- 録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
 - API フェッチは原則 `credentials: 'same-origin'` で Cookie 認証情報を送信する
 
 ### 画面追加時の方針
@@ -115,6 +118,7 @@ builder.Services.AddSingleton<IUserService, UserService>();
 - まず画面要件に沿った UI を追加する
 - 次に必要な型を `src/lib/callCenterData.ts` に追加し、更新処理はバックエンドの `CallCenterRepository` に追加する
 - call center データは Azure Table Storage の `CallCenterState` テーブルに永続化し、ACS 互換 webhook は `POST /api/acs/events` で受ける
+- AI 応答・要約・転送判断は `IAiCallResponseService` に集約し、`CallCenterService` から呼び出す
 
 ---
 

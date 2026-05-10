@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Azure.Data.Tables;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -20,14 +21,25 @@ builder.Services.AddSingleton(_ =>
         ?? "UseDevelopmentStorage=true";
     return new TableServiceClient(connectionString);
 });
+builder.Services.AddSingleton(_ =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("AzureStorage")
+        ?? "UseDevelopmentStorage=true";
+    return new BlobServiceClient(connectionString);
+});
 
 // --- Repositories & Services ---
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ICallCenterRepository, CallCenterRepository>();
 builder.Services.AddSingleton(
+    builder.Configuration.GetSection("AzureAiFoundry").Get<Shared.Util.AiFoundrySettings>()
+    ?? new Shared.Util.AiFoundrySettings());
+builder.Services.AddSingleton(
     builder.Configuration.GetSection("UserManagement").Get<Shared.Util.UserManagementSettings>()
     ?? new Shared.Util.UserManagementSettings());
 builder.Services.AddSingleton<IUserService, UserService>();
+builder.Services.AddSingleton<IAiCallResponseService, AiCallResponseService>();
+builder.Services.AddSingleton<ICallRecordingStorage, CallRecordingStorage>();
 builder.Services.AddSingleton<ICallCenterService, CallCenterService>();
 builder.Services.AddSingleton(sp => new Lazy<IUserService>(() => sp.GetRequiredService<IUserService>()));
 builder.Services.Configure<TestLoginOptions>(builder.Configuration.GetSection("TestLogin"));

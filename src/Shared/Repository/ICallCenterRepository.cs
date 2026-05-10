@@ -39,6 +39,16 @@ public interface ICallCenterRepository
     Task<CallRecordDto> ApplyCurrentCallActionAsync(string action);
 
     /// <summary>
+    /// 現在着信の文字起こしを更新する。
+    /// </summary>
+    Task<CallRecordDto> AppendCurrentCallTranscriptAsync(AppendTranscriptLineRequestDto request);
+
+    /// <summary>
+    /// AI 応答生成結果を現在着信へ反映する。
+    /// </summary>
+    Task<CallRecordDto> ApplyAiCallResponseAsync(AiCallResponseDto response);
+
+    /// <summary>
     /// 現在着信にイベントを反映する。
     /// </summary>
     Task<CallRecordDto> ApplyCurrentCallEventAsync(CallEventUpdateRequestDto request);

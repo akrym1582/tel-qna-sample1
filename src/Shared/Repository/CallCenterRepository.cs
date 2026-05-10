@@ -234,6 +234,97 @@ public class CallCenterRepository : ICallCenterRepository
     }
 
     /// <inheritdoc/>
+    public async Task<CallRecordDto> AppendCurrentCallTranscriptAsync(AppendTranscriptLineRequestDto request)
+    {
+        await _stateLock.WaitAsync();
+        try
+        {
+            var state = await LoadStateAsync();
+            var currentCall = state.IncomingCall;
+            var timestamp = GetCurrentTimeOnly();
+            var updatedCall = currentCall with
+            {
+                Transcript = currentCall.Transcript
+                    .Concat([new CallTranscriptLineDto(request.Speaker, request.Text, timestamp)])
+                    .ToList(),
+                Events = currentCall.Events
+                    .Concat([new CallEventDto(timestamp, "文字起こし更新", request.Speaker, $"{request.Speaker} の発話を追加しました。")])
+                    .ToList(),
+            };
+
+            await SaveStateAsync(state with { IncomingCall = updatedCall });
+            return updatedCall;
+        }
+        finally
+        {
+            _stateLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<CallRecordDto> ApplyAiCallResponseAsync(AiCallResponseDto response)
+    {
+        await _stateLock.WaitAsync();
+        try
+        {
+            var state = await LoadStateAsync();
+            var currentCall = state.IncomingCall;
+            var timestamp = GetCurrentTimeOnly();
+            var updatedEvents = currentCall.Events
+                .Concat([new CallEventDto(timestamp, "AI応答生成", "Azure AI Foundry", "gpt-realtime-2 で応答と要約を更新しました。")])
+                .ToList();
+
+            if (response.TransferRequired && !string.IsNullOrWhiteSpace(response.TransferDestinationName))
+            {
+                updatedEvents.Add(
+                    new CallEventDto(
+                        timestamp,
+                        "転送判断",
+                        "AI",
+                        response.TransferReason ?? $"{response.TransferDestinationName} への転送を提案しました。"));
+            }
+
+            var updatedTransferHistory = currentCall.TransferHistory.ToList();
+            if (response.TransferRequired &&
+                !string.IsNullOrWhiteSpace(response.TransferDestinationId) &&
+                !updatedTransferHistory.Any(history => history.DestinationId == response.TransferDestinationId))
+            {
+                updatedTransferHistory.Add(
+                    new TransferHistoryItemDto(
+                        response.TransferDestinationId,
+                        response.TransferDestinationName ?? "未設定",
+                        response.TransferReason ?? "AI が転送を提案しました。",
+                        "提案済み"));
+            }
+
+            var updatedCall = currentCall with
+            {
+                Status = response.TransferRequired ? "転送中" : "AI対応中",
+                ResponseMode = "AI",
+                OperatorName = "gpt-realtime-2",
+                AiHandled = true,
+                TransferRequired = response.TransferRequired,
+                TransferDestinationId = response.TransferDestinationId,
+                TransferDestinationName = response.TransferDestinationName,
+                TransferReason = response.TransferReason,
+                AiSummary = response.AiSummary,
+                Transcript = currentCall.Transcript
+                    .Concat([new CallTranscriptLineDto("AI", response.AssistantReply, timestamp)])
+                    .ToList(),
+                Events = updatedEvents,
+                TransferHistory = updatedTransferHistory,
+            };
+
+            await SaveStateAsync(state with { IncomingCall = updatedCall });
+            return updatedCall;
+        }
+        finally
+        {
+            _stateLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
     public async Task<CallRecordDto> ApplyCurrentCallEventAsync(CallEventUpdateRequestDto request)
     {
         await _stateLock.WaitAsync();

@@ -136,6 +136,55 @@ public class CallCenterControllerTests
         Assert.False(response.Success);
     }
 
+    [Fact]
+    public async Task AppendCurrentCallTranscript_更新済み着信を返す()
+    {
+        var updatedCall = CreateIncomingCall() with
+        {
+            Transcript =
+            [
+                new CallTranscriptLineDto("顧客", "お問い合わせです。", "10:00:10"),
+                new CallTranscriptLineDto("顧客", "追加の質問です。", "10:01:00"),
+            ],
+        };
+        _callCenterService.AppendCurrentCallTranscriptAsync(Arg.Any<AppendTranscriptLineRequestDto>())
+            .Returns(updatedCall);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.AppendCurrentCallTranscript(
+            new AppendTranscriptLineRequestDto("顧客", "追加の質問です。"));
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto<CallRecordDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(2, response.Data?.Transcript.Count);
+    }
+
+    [Fact]
+    public async Task GenerateAiResponse_更新済み着信を返す()
+    {
+        var updatedCall = CreateIncomingCall() with
+        {
+            Status = "AI対応中",
+            AiSummary = "AI が要約を更新しました。",
+            Transcript =
+            [
+                new CallTranscriptLineDto("顧客", "お問い合わせです。", "10:00:10"),
+                new CallTranscriptLineDto("AI", "ご案内します。", "10:00:20"),
+            ],
+        };
+        _callCenterService.GenerateAiResponseAsync().Returns(updatedCall);
+        var controller = new CallCenterController(_callCenterService);
+
+        var result = await controller.GenerateAiResponse();
+
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var response = Assert.IsType<ApiResponseDto<CallRecordDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("AI対応中", response.Data?.Status);
+        Assert.Equal("AI が要約を更新しました。", response.Data?.AiSummary);
+    }
+
     private static CallCenterBootstrapDto CreateBootstrap() =>
         new(
             new CurrentOperatorDto("operator-01", "田中 花子", "オペレーター", "代表電話受付"),
