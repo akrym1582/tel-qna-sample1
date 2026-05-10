@@ -53,6 +53,7 @@ describe('useApi', () => {
     const { result } = renderHook(() => useApi<unknown>(null), { wrapper })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(mockFetch).not.toHaveBeenCalled()
     expect(result.current.data).toBeUndefined()
   })
 
