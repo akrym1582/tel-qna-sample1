@@ -44,6 +44,9 @@ export interface CreateTestIncomingCallRequest {
 export interface AppendCurrentCallTranscriptRequest {
   speaker: '顧客' | 'オペレーター'
   text: string
+  audioBase64?: string
+  audioMimeType?: string
+  audioFileName?: string
 }
 
 async function requestJson<T>(path: string, method: 'POST' | 'PUT', body?: unknown): Promise<ApiResponse<T>> {

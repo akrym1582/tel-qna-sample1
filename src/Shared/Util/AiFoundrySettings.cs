@@ -16,6 +16,11 @@ public class AiFoundrySettings
     public string Deployment { get; set; } = "gpt-realtime-2";
 
     /// <summary>
+    /// 音声文字起こしモデルのデプロイ名。
+    /// </summary>
+    public string TranscriptionDeployment { get; set; } = "gpt-4o-mini-transcribe";
+
+    /// <summary>
     /// API キー。
     /// </summary>
     public string ApiKey { get; set; } = string.Empty;

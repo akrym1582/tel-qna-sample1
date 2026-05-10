@@ -41,7 +41,7 @@ TemplateApp.slnx
 - `src/WebApp/clientapp/src/lib/callCenterData.ts` はフロントエンド側の型定義と参照ヘルパーを保持する
 - AI 応答生成は `POST /api/call-center/current-call/ai-response` から実行し、Azure AI Foundry `gpt-realtime-2` を優先利用する
 - FAQ 候補抽出はベクトル検索を使わず、文字起こし・顧客要約に対する文字列中間一致検索で行う
-- 文字起こし追加は `POST /api/call-center/current-call/transcript` で行い、録音アーカイブは Azure Blob Storage `call-recordings` コンテナへ JSON として保存する
+- 文字起こし追加は `POST /api/call-center/current-call/transcript` で行い、音声データを渡した場合は Azure AI Foundry の文字起こし API を優先利用する
 - 画面間の導線は `AppShell` のサイドナビゲーションで提供
 - UI テキストはすべて日本語
 - アラート / 確認ダイアログは `@/lib/alert` を利用
@@ -57,7 +57,7 @@ TemplateApp.slnx
 - システム設定
 
 現時点ではバックエンドの `CallCenterRepository` が Azure Table Storage の `CallCenterState` テーブルへ電話受付状態を永続化し、`GET /api/call-center/bootstrap`、各種更新 API、テスト着信 API、ACS 互換 webhook を提供します。FAQ 候補は文字起こし全文・最新発話・顧客要約に対する文字列中間一致検索で抽出します。
-AI 応答は Azure AI Foundry `gpt-realtime-2` を利用する構成で、未設定時や接続失敗時はサンプル応答へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
+AI 応答は Azure AI Foundry `gpt-realtime-2`、文字起こしは Azure AI Foundry 音声文字起こし API を利用する構成で、未設定時や接続失敗時は既存テキスト入力へフォールバックします。録音はブラウザ音声ストリーム未接続のため、現段階では文字起こし全文・最新発話・要約・イベント・転送情報を含む録音アーカイブ JSON を Blob Storage に保存します。
 
 ## 技術スタック
 
@@ -71,6 +71,7 @@ AI 応答は Azure AI Foundry `gpt-realtime-2` を利用する構成で、未設
 - 文字起こし / AI 応答 API (`POST /api/call-center/current-call/transcript`, `POST /api/call-center/current-call/ai-response`)
 - ACS / Event Grid 互換 webhook (`POST /api/acs/events`)
 - Azure AI Foundry Realtime (`gpt-realtime-2`)
+- Azure AI Foundry Audio Transcription (`gpt-4o-mini-transcribe`)
 - xUnit + NSubstitute
 
 ### フロントエンド
@@ -106,12 +107,13 @@ azurite --silent --location /tmp/azurite --debug /tmp/azurite/debug.log
 ```
 
 ### Azure AI Foundry 設定
-`src/WebApp/appsettings.json` またはユーザー シークレットに以下を設定すると、AI 応答生成で Azure AI Foundry `gpt-realtime-2` を利用します。
+`src/WebApp/appsettings.json` またはユーザー シークレットに以下を設定すると、AI 応答生成 (`gpt-realtime-2`) と音声文字起こし (`gpt-4o-mini-transcribe`) で Azure AI Foundry を利用します。
 
 ```json
 "AzureAiFoundry": {
   "Endpoint": "https://<resource>.openai.azure.com",
   "Deployment": "gpt-realtime-2",
+  "TranscriptionDeployment": "gpt-4o-mini-transcribe",
   "ApiKey": "<api-key>",
   "ApiVersion": "2025-04-01-preview",
   "UseMockWhenUnavailable": true
@@ -141,7 +143,7 @@ npm run build
 
 - `POST /api/call-center/test-calls`: 認証済み画面からテスト着信を作成
 - `PUT /api/call-center/current-call/actions/receive|ai|reject`: 現在着信の状態を更新
-- `POST /api/call-center/current-call/transcript`: 現在着信に顧客 / オペレーター発話を追加
+- `POST /api/call-center/current-call/transcript`: 現在着信に顧客 / オペレーター発話を追加（`audioBase64` を含む場合は Azure AI Foundry で文字起こし）
 - `POST /api/call-center/current-call/ai-response`: Azure AI Foundry `gpt-realtime-2` で応答・要約・転送判断を生成
 - `POST /api/acs/events`: Event Grid 互換の配列 payload を受信して着信 / 接続 / 終話を反映
 

@@ -114,8 +114,15 @@ public class CallCenterController : ControllerBase
     public async Task<ActionResult<ApiResponseDto<CallRecordDto>>> AppendCurrentCallTranscript(
         [FromBody] AppendTranscriptLineRequestDto request)
     {
-        var call = await _callCenterService.AppendCurrentCallTranscriptAsync(request);
-        return Ok(new ApiResponseDto<CallRecordDto>(true, call, "文字起こしを更新しました。"));
+        try
+        {
+            var call = await _callCenterService.AppendCurrentCallTranscriptAsync(request);
+            return Ok(new ApiResponseDto<CallRecordDto>(true, call, "文字起こしを更新しました。"));
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new ApiResponseDto(false, exception.Message));
+        }
     }
 
     /// <summary>
