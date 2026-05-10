@@ -28,6 +28,7 @@ public class AcsWebhookController : ControllerBase
     private const string MediaStreamingFailedEvent = "Microsoft.Communication.MediaStreamingFailed";
     private const string RecordingFileStatusUpdatedEvent = "Microsoft.Communication.RecordingFileStatusUpdated";
     private const string TranscriptionUpdatedEvent = "Microsoft.Communication.TranscriptionUpdated";
+    private const string AgentSpeakerMarker = "agent";
     private readonly ICallCenterService _callCenterService;
 
     /// <summary>
@@ -336,7 +337,7 @@ public class AcsWebhookController : ControllerBase
         var speaker = GetNestedPropertyString(eventItem, "data", "result", "participantId") ??
             GetNestedPropertyString(eventItem, "data", "result", "speaker") ??
             GetNestedPropertyString(eventItem, "data", "participantId");
-        return !string.IsNullOrWhiteSpace(speaker) && speaker.Contains("agent", StringComparison.OrdinalIgnoreCase)
+        return !string.IsNullOrWhiteSpace(speaker) && speaker.Contains(AgentSpeakerMarker, StringComparison.OrdinalIgnoreCase)
             ? "オペレーター"
             : "顧客";
     }
