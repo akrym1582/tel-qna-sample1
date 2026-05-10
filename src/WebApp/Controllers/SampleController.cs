@@ -8,6 +8,7 @@ namespace WebApp.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class SampleController : ControllerBase
 {
     /// <summary>

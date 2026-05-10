@@ -44,6 +44,8 @@ beforeEach(() => {
   })
 
   mockFetch.mockResolvedValue({
+    ok: true,
+    headers: new Headers(),
     json: vi.fn().mockResolvedValue({
       success: true,
       data: {

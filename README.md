@@ -39,6 +39,7 @@ TemplateApp.slnx
 - `src/WebApp/Controllers/CallCenterController.cs` が初期フェーズ用の画面データ API を提供
 - フロントエンドは `/api/call-center/bootstrap` から画面データを取得する
 - `src/WebApp/clientapp/src/lib/callCenterData.ts` はフロントエンド側の型定義と参照ヘルパーを保持する
+- フロントエンドの API 呼び出しは OpenAPI から `openapi2aspida` で生成した `src/WebApp/clientapp/src/api/` 配下のクライアントを必ず経由し、画面コードに API URL の固定値を書かない
 - AI 応答生成は `POST /api/call-center/current-call/ai-response` から実行し、Azure AI Foundry `gpt-realtime-2` を優先利用する
 - FAQ 候補抽出はベクトル検索を使わず、文字起こし・顧客要約に対する文字列中間一致検索で行う
 - 文字起こし追加は `POST /api/call-center/current-call/transcript` で行い、音声データを渡した場合は Azure AI Foundry の文字起こし API を優先利用する
@@ -94,6 +95,16 @@ AI 応答は Azure AI Foundry `gpt-realtime-2`、文字起こしは Azure AI Fou
 ```bash
 cd src/WebApp/clientapp
 npm install
+```
+
+### OpenAPI クライアント再生成
+```bash
+cd src/WebApp
+ASPNETCORE_ENVIRONMENT=Development dotnet run
+
+# 別ターミナル
+cd src/WebApp/clientapp
+npm run generate-api
 ```
 
 ### バックエンド起動

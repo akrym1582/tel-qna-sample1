@@ -4,23 +4,14 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import type { UserDto } from '@/hooks/useAuth'
 import { alert } from '@/lib/alert'
-import { apiFetch } from '@/lib/aspida'
+import { asApiResponse } from '@/lib/apiResponse'
+import { apiClientNoThrow } from '@/lib/apiClient'
 import { notifyInitialPassword } from '@/lib/password'
 import { canManageUsers, formatRole, roleOptions } from '@/lib/user'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-
-/** 汎用 API レスポンス型（ページローカル用） */
-interface ApiResponse<T> {
-  /** 処理の成否 */
-  success: boolean
-  /** レスポンスデータ */
-  data?: T
-  /** エラーメッセージなどの補足メッセージ */
-  message?: string
-}
 
 /**
  * ユーザー詳細ページコンポーネント。
@@ -53,10 +44,10 @@ export default function UserDetailPage() {
       }
 
       setIsLoading(true)
-      const response = await apiFetch(`/api/user/${targetUserId}`)
-      const json: ApiResponse<UserDto> = await response.json()
+      const response = await apiClientNoThrow.User._userId(targetUserId).get()
+      const json = asApiResponse<UserDto>(response.body)
 
-      if (!json.success || !json.data) {
+      if (!response.originalResponse.ok || !json.success || !json.data) {
         await alert.error(json.message ?? 'ユーザー情報の取得に失敗しました。')
         setIsLoading(false)
         return
@@ -83,20 +74,19 @@ export default function UserDetailPage() {
     event.preventDefault()
     if (!targetUserId) return
 
-    const response = await apiFetch(`/api/user/${targetUserId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        displayName,
-        storeCode,
-        storeName,
-        roles: [role],
-      }),
+    const request = {
+      email,
+      displayName,
+      storeCode,
+      storeName,
+      roles: [role],
+    }
+    const response = await apiClientNoThrow.User._userId(targetUserId).put({
+      body: request,
     })
 
-    const json: ApiResponse<UserDto> = await response.json()
-    if (!json.success || !json.data) {
+    const json = asApiResponse<UserDto>(response.body)
+    if (!response.originalResponse.ok || !json.success || !json.data) {
       await alert.error(json.message ?? 'ユーザー情報の更新に失敗しました。')
       return
     }

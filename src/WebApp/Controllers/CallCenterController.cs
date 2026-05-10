@@ -9,7 +9,7 @@ namespace WebApp.Controllers;
 /// 電話受付・AI 応答システムの画面表示に必要な API を提供するコントローラー。
 /// </summary>
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/call-center")]
 [Authorize]
 public class CallCenterController : ControllerBase
 {
